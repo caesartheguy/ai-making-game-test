@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Fighter - 8-Bit Edition</title>
+    
+    <!-- ================================================== -->
+    <!-- CSS: The game's appearance -->
+    <!-- ================================================== -->
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #game-container {
+            position: relative;
+        }
+
+        #game-canvas {
+            background-color: #2c2c2c;
+            border: 2px solid #444;
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        /* --- Character Select Screen --- */
+        #character-select-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #character-select-display.hidden { display: none; }
+        .select-header { font-size: 3em; margin-bottom: 20px; }
+        .selection-area { display: flex; justify-content: space-around; align-items: center; width: 90%; }
+        .player-select-column { text-align: center; }
+        .player-select-column h2 { font-size: 2em; margin-bottom: 15px; }
+        .selected-character-display { width: 150px; height: 150px; border: 3px solid #555; background-color: #333; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; }
+        .selected-character-display.confirmed { border-color: #4CAF50; }
+        .confirm-button, .start-button { padding: 10px 20px; font-size: 1.2em; cursor: pointer; background-color: #5865F2; color: white; border: none; border-radius: 8px; transition: background-color 0.2s; }
+        .confirm-button:hover, .start-button:hover { background-color: #4752C4; }
+        .confirm-button:disabled, .start-button:disabled { background-color: #555; cursor: not-allowed; }
+        .character-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .character-card { width: 120px; height: 120px; border: 2px solid #444; background-color: #333; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+        .character-card:hover { transform: scale(1.05); border-color: #777; }
+        .character-card.selected-p1 { border-color: blue; }
+        .character-card.selected-p2 { border-color: red; }
+
+        /* --- Game Over Screen --- */
+        #game-over-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #game-over-display.hidden { display: none; }
+        #winner-text { font-size: 4em; margin-bottom: 20px; }
+        #restart-button { padding: 15px 30px; font-size: 1.5em; cursor: pointer; background-color: #5865F2; color: white; border: none; border-radius: 8px; transition: background-color 0.2s; }
+        #restart-button:hover { background-color: #4752C4; }
+    </style>
+</head>
+<body>
+
+    <!-- ================================================== -->
+    <!-- HTML: The game's structure -->
+    <!-- ================================================== -->
+    <div id="game-container">
+        <!-- Character Select Screen -->
+        <div id="character-select-display">
+            <h1 class="select-header">Select Your Fighter</h1>
+            <div class="selection-area">
+                <div class="player-select-column">
+                    <h2>Player 1</h2>
+                    <div id="p1-selected" class="selected-character-display">None</div>
+                    <button id="p1-confirm" class="confirm-button" disabled>Confirm</button>
+                </div>
+                <div class="character-grid" id="character-grid"></div>
+                <div class="player-select-column">
+                    <h2>Player 2</h2>
+                    <div id="p2-selected" class="selected-character-display">None</div>
+                    <button id="p2-confirm" class="confirm-button" disabled>Confirm</button>
+                </div>
+            </div>
+            <button id="start-battle" class="start-button" style="margin-top: 20px;" disabled>Start Battle</button>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Game Over Screen -->
+        <div id="game-over-display" class="hidden">
+            <h1 id="winner-text"></h1>
+            <button id="restart-button">Back to Select</button>
+        </div>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- JavaScript: The game's logic -->
+    <!-- ================================================== -->
+    <script>
+        // --- SETUP ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1024;
+        canvas.height = 576;
+        const GRAVITY = 0.7;
+
+        // --- UI ELEMENTS ---
+        const characterSelectDisplay = document.getElementById('character-select-display');
+        const characterGrid = document.getElementById('character-grid');
+        const p1SelectedDisplay = document.getElementById('p1-selected');
+        const p2SelectedDisplay = document.getElementById('p2-selected');
+        const p1ConfirmButton = document.getElementById('p1-confirm');
+        const p2ConfirmButton = document.getElementById('p2-confirm');
+        const startBattleButton = document.getElementById('start-battle');
+        const gameOverDisplay = document.getElementById('game-over-display');
+        const winnerText = document.getElementById('winner-text');
+        const restartButton = document.getElementById('restart-button');
+
+        // --- GAME STATE ---
+        let gameState = 'SELECT';
+        let player1Selection = null, player2Selection = null;
+        let player1Confirmed = false, player2Confirmed = false;
+        let player1, player2, projectiles = [];
+        
+        // --- NEW: TIME STOP VARIABLES ---
+        let isTimeStopped = false;
+        let timeStopper = null;
+        let timeStopDuration = 5000; // 5 seconds
+
+        // --- PROJECTILE CLASSES ---
+        class Projectile { /* ... (same as before) ... */
+            constructor({ position, velocity, width, height, color, owner }) {
+                this.position = position; this.velocity = velocity; this.width = width; this.height = height; this.color = color; this.owner = owner;
+            }
+            draw() { ctx.fillStyle = this.color; ctx.fillRect(this.position.x, this.position.y, this.width, this.height); }
+            update() { this.draw(); this.position.x += this.velocity.x; this.position.y += this.velocity.y; }
+        }
+        class Kamehameha { /* ... (same as before) ... */
+            constructor({ position, owner, direction }) {
+                this.position = position; this.owner = owner; this.direction = direction;
+                this.width = 10; this.maxWidth = 200; this.height = 20; this.growthSpeed = 15;
+            }
+            draw() { ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0, 191, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)'; ctx.fillRect(this.position.x, this.position.y, this.width, this.height); }
+            update() { this.draw(); if (this.width < this.maxWidth) { this.width += this.growthSpeed; if (this.direction === 'left') this.position.x -= this.growthSpeed; } }
+        }
+
+        // --- ARENA DRAWING FUNCTION ---
+        function drawArena() { /* ... (same as before) ... */
+            ctx.fillStyle = '#3D2817'; ctx.fillRect(0, 0, canvas.width, canvas.height - 100);
+            ctx.fillStyle = '#5C3D2E'; ctx.fillRect(0, 0, canvas.width, 150);
+            ctx.fillStyle = '#3D2817'; ctx.fillRect(50, 50, canvas.width - 100, 100);
+            for (let i = 0; i < canvas.width; i += 15) { ctx.fillStyle = `hsl(${Math.random() * 360}, 70%, 50%)`; ctx.fillRect(i + Math.random() * 10, 20 + Math.random() * 20, 8, 8); }
+            ctx.fillStyle = '#8B7355'; ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+            ctx.fillStyle = '#6B5345';
+            for (let i = 0; i < canvas.width; i += 40) { ctx.fillRect(i, canvas.height - 100, 2, 100); ctx.fillRect(i + 20, canvas.height - 80, 2, 80); }
+        }
+
+        // --- CHARACTER DATA WITH COMPLEX 8-BIT MODELS ---
+        const characters = [
+            /* ... (Mike, Spongebob, Squidward, LeBron, Goku are the same) ... */
+            {
+                id: 'mike', name: 'Mike Tyson', width: 80, height: 120,
+                draw: (sprite) => { /* ... */ },
+                attack: (sprite) => { /* ... */ },
+                drawWeapon: (sprite) => { /* ... */ }
+            },
+            {
+                id: 'spongebob', name: 'Spongebob', width: 80, height: 100,
+                draw: (sprite) => { /* ... */ },
+                attack: (sprite) => { /* ... */ },
+                drawWeapon: (sprite) => { /* ... */ }
+            },
+            {
+                id: 'squidward', name: 'Squidward', width: 70, height: 110,
+                draw: (sprite) => { /* ... */ },
+                attack: (sprite) => { /* ... */ },
+                drawWeapon: (sprite) => { /* ... */ }
+            },
+            {
+                id: 'lebron', name: 'LeBron James', width: 80, height: 110,
+                draw: (sprite) => { /* ... */ },
+                attack: (sprite) => { /* ... */ },
+                drawWeapon: (sprite) => { /* ... */ }
+            },
+            {
+                id: 'goku', name: 'Goku', width: 70, height: 100,
+                draw: (sprite) => { /* ... */ },
+                attack: (sprite) => { /* ... */ },
+                drawWeapon: (sprite) => { /* ... */ }
+            },
+            // --- NEW: DIO CHARACTER ---
+            {
+                id: 'dio', name: 'Dio', width: 75, height: 115,
+                draw: (sprite) => {
+                    const { position, facing, isBlocking } = sprite;
+                    const c = isBlocking ? '#555' : '';
+                    // Legs
+                    ctx.fillStyle = c || '#FFD700'; ctx.fillRect(position.x + 15, position.y + 75, 20, 40);
+                    ctx.fillStyle = c || '#FFD700'; ctx.fillRect(position.x + 40, position.y + 75, 20, 40);
+                    // Shoes
+                    ctx.fillStyle = c || '#8B0000'; ctx.fillRect(position.x + 13, position.y + 110, 24, 10);
+                    ctx.fillStyle = c || '#8B0000'; ctx.fillRect(position.x + 38, position.y + 110, 24, 10);
+                    // Torso
+                    ctx.fillStyle = c || '#228B22'; ctx.fillRect(position.x + 10, position.y + 35, 55, 45);
+                    // Head
+                    ctx.fillStyle = c || '#FDBCB4'; ctx.fillRect(position.x + 20, position.y + 5, 35, 35);
+                    // Hair
+                    ctx.fillStyle = c || '#FFD700'; ctx.fillRect(position.x + 15, position.y, 45, 15);
+                    ctx.fillStyle = c || '#FFD700'; ctx.fillRect(position.x + 10, position.y - 5, 10, 10);
+                    ctx.fillStyle = c || '#FFD700'; ctx.fillRect(position.x + 55, position.y - 5, 10, 10);
+                    // Eyes
+                    ctx.fillStyle = '#000000';
+                    if (facing === 'right') { ctx.fillRect(position.x + 45, position.y + 15, 5, 5); }
+                    else { ctx.fillRect(position.x + 25, position.y + 15, 5, 5); }
+                },
+                attack: (sprite) => { // Knife Throw
+                    if (sprite.isAttacking || sprite.isBlocking) return;
+                    sprite.isAttacking = true;
+                    const { position, width, height, facing } = sprite;
+                    const direction = facing === 'right' ? 1 : -1;
+                    projectiles.push(new Projectile({
+                        position: { x: position.x + width / 2 - 3, y: position.y + 20 },
+                        velocity: { x: 12 * direction, y: 0 }, width: 6, height: 12,
+                        color: '#C0C0C0', owner: sprite
+                    }));
+                    setTimeout(() => { sprite.isAttacking = false; }, 300);
+                },
+                drawWeapon: (sprite) => { /* No weapon to draw for projectile */ },
+                // --- NEW: DIO'S SPECIAL ATTACK ---
+                specialAttack: (sprite) => {
+                    if (isTimeStopped || !sprite.canTimeStop || sprite.isBlocking || sprite.isAttacking) return;
+                    
+                    sprite.canTimeStop = false;
+                    sprite.isInitiatingTimeStop = true;
+                    sprite.timeStopAnimationProgress = 0;
+                    sprite.timeStopCircleRadius = 10;
+                    // Make Dio jump
+                    sprite.velocity.y = -18;
+                }
+            }
+        ];
+
+        // --- CLASSES ---
+        class Sprite {
+            constructor({ position, velocity, characterData, facing }) {
+                this.position = position; this.velocity = velocity; this.characterData = characterData;
+                this.width = characterData.width; this.height = characterData.height;
+                this.isAttacking = false; this.health = 100; this.isBlocking = false; this.lastKey;
+                this.facing = facing;
+                this.currentAttackHitbox = null;
+                // --- NEW: PROPERTIES FOR TIME STOP ---
+                this.canTimeStop = true;
+                this.isInitiatingTimeStop = false;
+                this.timeStopAnimationProgress = 0;
+                this.timeStopCircleRadius = 10;
+            }
+            draw() { this.characterData.draw(this); this.characterData.drawWeapon(this); }
+            update() {
+                this.draw();
+                this.position.y += this.velocity.y;
+                this.position.x += this.velocity.x;
+                if (this.position.y + this.height + this.velocity.y < canvas.height) { this.velocity.y += GRAVITY; } else { this.velocity.y = 0; }
+            }
+            attack() { this.characterData.attack(this); }
+            specialAttack() { if (this.characterData.specialAttack) this.characterData.specialAttack(this); }
+        }
+
+        // --- CHARACTER SELECT LOGIC ---
+        function initializeCharacterSelect() { characters.forEach(char => { const card = document.createElement('div'); card.className = 'character-card'; card.dataset.characterId = char.id; card.innerHTML = `<strong>${char.name}</strong>`; card.addEventListener('click', () => selectCharacter(char.id)); characterGrid.appendChild(card); }); }
+        function selectCharacter(charId) { if (gameState !== 'SELECT') return; if (!player1Confirmed) { player1Selection = charId; updateSelectDisplay(); } else if (!player2Confirmed) { player2Selection = charId; updateSelectDisplay(); } }
+        function updateSelectDisplay() {
+            const p1Char = characters.find(c => c.id === player1Selection); p1SelectedDisplay.innerHTML = p1Char ? p1Char.name : 'None'; p1ConfirmButton.disabled = !p1Char; document.querySelectorAll('.character-card.selected-p1').forEach(c => c.classList.remove('selected-p1')); if (p1Char) document.querySelector(`[data-character-id="${p1Char.id}"]`).classList.add('selected-p1');
+            const p2Char = characters.find(c => c.id === player2Selection); p2SelectedDisplay.innerHTML = p2Char ? p2Char.name : 'None'; p2ConfirmButton.disabled = !p2Char; document.querySelectorAll('.character-card.selected-p2').forEach(c => c.classList.remove('selected-p2')); if (p2Char) document.querySelector(`[data-character-id="${p2Char.id}"]`).classList.add('selected-p2');
+        }
+        p1ConfirmButton.addEventListener('click', () => { player1Confirmed = true; p1SelectedDisplay.classList.add('confirmed'); checkReadyToStart(); });
+        p2ConfirmButton.addEventListener('click', () => { player2Confirmed = true; p2SelectedDisplay.classList.add('confirmed'); checkReadyToStart(); });
+        function checkReadyToStart() { if (player1Confirmed && player2Confirmed) startBattleButton.disabled = false; }
+        startBattleButton.addEventListener('click', startBattle);
+
+        // --- GAME START ---
+        function startBattle() { gameState = 'BATTLE'; characterSelectDisplay.classList.add('hidden'); const p1Data = characters.find(c => c.id === player1Selection); const p2Data = characters.find(c => c.id === player2Selection); player1 = new Sprite({ position: { x: 100, y: 0 }, velocity: { x: 0, y: 0 }, characterData: p1Data, facing: 'right' }); player2 = new Sprite({ position: { x: 700, y: 0 }, velocity: { x: 0, y: 0 }, characterData: p2Data, facing: 'left' }); resetBattleState(); animate(); }
+        function resetBattleState() { player1.health = 100; player2.health = 100; player1.position = { x: 100, y: 0 }; player2.position = { x: 700, y: 0 }; player1.velocity = { x: 0, y: 0 }; player2.velocity = { x: 0, y: 0 }; player1.isBlocking = false; player2.isBlocking = false; projectiles = []; gameOver = false; gameOverDisplay.classList.add('hidden'); timer = 60; isTimeStopped = false; timeStopper = null; }
+
+        // --- INPUT HANDLING ---
+        const keys = { a: { pressed: false }, d: { pressed: false }, w: { pressed: false }, ArrowLeft: { pressed: false }, ArrowRight: { pressed: false }, ArrowUp: { pressed: false } };
+        window.addEventListener('keydown', (event) => { if (gameState !== 'BATTLE' || gameOver) return;
+            switch (event.key) { case 'd': keys.d.pressed = true; player1.lastKey = 'd'; break; case 'a': keys.a.pressed = true; player1.lastKey = 'a'; break; case 'w': if (player1.position.y + player1.height >= canvas.height - 10) player1.velocity.y = -15; break; case ' ': player1.attack(); break; case 's': player1.isBlocking = true; break; case 'q': player1.specialAttack(); break; // NEW: P1 Special
+                case 'ArrowRight': keys.ArrowRight.pressed = true; player2.lastKey = 'ArrowRight'; break; case 'ArrowLeft': keys.ArrowLeft.pressed = true; player2.lastKey = 'ArrowLeft'; break; case 'ArrowUp': if (player2.position.y + player2.height >= canvas.height - 10) player2.velocity.y = -15; break; case 'ArrowDown': player2.attack(); break; } if (event.key === 'Shift') { player2.isBlocking = true; } if (event.ctrlKey) { player2.specialAttack(); } // NEW: P2 Special
+        });
+        window.addEventListener('keyup', (event) => { switch (event.key) { case 'd': keys.d.pressed = false; break; case 'a': keys.a.pressed = false; break; case 's': player1.isBlocking = false; break; case 'ArrowRight': keys.ArrowRight.pressed = false; break; case 'ArrowLeft': keys.ArrowLeft.pressed = false; break; case 'Shift': player2.isBlocking = false; break; } });
+
+        // --- COLLISION & UI ---
+        function rectangularCollision({ rectangle1, rectangle2 }) { return ( rectangle1.position.x + rectangle1.width >= rectangle2.position.x && rectangle1.position.x <= rectangle2.position.x + rectangle2.width && rectangle1.position.y + rectangle1.height >= rectangle2.position.y && rectangle1.position.y <= rectangle2.position.y + rectangle2.height ); }
+        function drawUI() { ctx.fillStyle = '#555'; ctx.fillRect(30, 30, 400, 40); ctx.fillRect(canvas.width - 430, 30, 400, 40); ctx.fillStyle = '#4CAF50'; const p1HealthWidth = (player1.health / 100) * 400; ctx.fillRect(30, 30, p1HealthWidth, 40); ctx.font = '24px Arial'; ctx.fillStyle = 'white'; ctx.textAlign = 'left'; ctx.fillText(player1.characterData.name, 35, 58); ctx.fillStyle = '#f44336'; const p2HealthWidth = (player2.health / 100) * 400; ctx.fillRect(canvas.width - 430, 30, p2HealthWidth, 40); ctx.font = '24px Arial'; ctx.fillStyle = 'white'; ctx.textAlign = 'right'; ctx.fillText(player2.characterData.name, canvas.width - 35, 58); ctx.font = '48px Arial'; ctx.fillStyle = 'white'; ctx.textAlign = 'center'; ctx.fillText(timer, canvas.width / 2, 60); }
+        function determineWinner() { gameOver = true; gameOverDisplay.classList.remove('hidden'); if (player1.health === player2.health) winnerText.innerHTML = 'Tie!'; else if (player1.health > player2.health) winnerText.innerHTML = `${player1.characterData.name} Wins!`; else winnerText.innerHTML = `${player2.characterData.name} Wins!`; }
+        function decreaseTimer() { if (gameOver) return; if (timer > 0) { timer--; } if (timer === 0) { determineWinner(); } } setInterval(decreaseTimer, 1000);
+
+        // --- ANIMATION LOOP ---
+        let timer = 60; let gameOver = false;
+        function animate() {
+            if (gameState !== 'BATTLE') return;
+            window.requestAnimationFrame(animate);
+            
+            // Draw Arena
+            drawArena();
+
+            // --- NEW: TIME STOP LOGIC ---
+            let activeTimeStopper = null;
+            if (player1.isInitiatingTimeStop) activeTimeStopper = player1;
+            if (player2.isInitiatingTimeStop) activeTimeStopper = player2;
+
+            if (activeTimeStopper) {
+                activeTimeStopper.timeStopAnimationProgress += 0.02; // 0.5 sec animation at 60fps
+                activeTimeStopper.timeStopCircleRadius = 10 + (canvas.width * activeTimeStopper.timeStopAnimationProgress);
+                
+                // Draw expanding circle with color inversion
+                ctx.save();
+                ctx.globalCompositeOperation = 'difference';
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(activeTimeStopper.position.x + activeTimeStopper.width / 2, activeTimeStopper.position.y + activeTimeStopper.height / 2, activeTimeStopper.timeStopCircleRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                if (activeTimeStopper.timeStopAnimationProgress >= 1) {
+                    isTimeStopped = true;
+                    timeStopper = activeTimeStopper;
+                    activeTimeStopper.isInitiatingTimeStop = false;
+                    setTimeout(() => {
+                        isTimeStopped = false;
+                        timeStopper.canTimeStop = false; // Start cooldown
+                        setTimeout(() => { timeStopper.canTimeStop = true; }, 10000); // 10s cooldown
+                        timeStopper = null;
+                    }, timeStopDuration);
+                }
+            }
+            
+            // Apply time stop effect
+            if (isTimeStopped) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            drawUI(); 
+
+            // Update characters based on time stop
+            if (!isTimeStopped || timeStopper === player1) player1.update();
+            if (!isTimeStopped || timeStopper === player2) player2.update();
+
+            // Update facing direction
+            if (player1.position.x < player2.position.x) { player1.facing = 'right'; player2.facing = 'left'; } else { player1.facing = 'left'; player2.facing = 'right'; }
+
+            // Movement
+            player1.velocity.x = 0; if (keys.d.pressed && player1.lastKey === 'd') player1.velocity.x = 5; else if (keys.a.pressed && player1.lastKey === 'a') player1.velocity.x = -5;
+            player2.velocity.x = 0; if (keys.ArrowRight.pressed && player2.lastKey === 'ArrowRight') player2.velocity.x = 5; else if (keys.ArrowLeft.pressed && player2.lastKey === 'ArrowLeft') player2.velocity.x = -5;
+
+            // Handle Projectiles
+            if (!isTimeStopped) {
+                projectiles.forEach((projectile, index) => {
+                    projectile.update();
+                    const opponent = projectile.owner === player1 ? player2 : player1;
+                    if (rectangularCollision({ rectangle1: projectile, rectangle2: opponent }) && !opponent.isBlocking) {
+                        opponent.health -= 10;
+                        projectiles.splice(index, 1);
+                    }
+                    if (projectile.position.x > canvas.width || projectile.position.x < -projectile.width) {
+                        projectiles.splice(index, 1);
+                    }
+                });
+            }
+
+            // Handle Melee Attacks
+            if (player1.currentAttackHitbox && rectangularCollision({ rectangle1: player1.currentAttackHitbox, rectangle2: player2 }) && !player2.isBlocking) { player2.health -= 10; }
+            if (player2.currentAttackHitbox && rectangularCollision({ rectangle1: player2.currentAttackHitbox, rectangle2: player1 }) && !player1.isBlocking) { player1.health -= 10; }
+
+            player1.currentAttackHitbox = null;
+            player2.currentAttackHitbox = null;
+
+            if (player1.health <= 0 || player2.health <= 0) { determineWinner(); }
+        }
+
+        // --- RESTART ---
+        restartButton.addEventListener('click', () => {
+            gameState = 'SELECT'; gameOverDisplay.classList.add('hidden'); characterSelectDisplay.classList.remove('hidden');
+            player1Selection = null; player2Selection = null; player1Confirmed = false; player2Confirmed = false;
+            p1SelectedDisplay.classList.remove('confirmed'); p2SelectedDisplay.classList.remove('confirmed');
+            p1ConfirmButton.disabled = true; p2ConfirmButton.disabled = true; startBattleButton.disabled = true;
+            updateSelectDisplay();
+        });
+
+        // --- INIT ---
+        initializeCharacterSelect();
+    </script>
+</body>
+</html>
