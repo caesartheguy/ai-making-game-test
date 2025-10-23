@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Fighter - Character Sound Effects Edition</title>
+
+<!-- ================================================== -->
+<!-- CSS: The game's appearance -->
+<!-- ================================================== -->
+<style>
+body {
+background-color: #1a1a1a;
+color: white;
+font-family: 'Courier New', Courier, monospace;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+margin: 0;
+}
+
+#game-container {
+position: relative;
+}
+
+#game-canvas {
+background-color: #2c2c2c;
+border: 2px solid #444;
+display: block;
+image-rendering: pixelated;
+image-rendering: -moz-crisp-edges;
+image-rendering: crisp-edges;
+}
+
+/* --- Character Select Screen --- */
+#character-select-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+#character-select-display.hidden { display: none; }
+.select-header { font-size: 3em; margin-bottom: 20px; }
+.selection-area { display: flex; justify-content: space-around; align-items: center; width: 90%; }
+.player-select-column { text-align: center; }
+.player-select-column h2 { font-size: 2em; margin-bottom: 15px; }
+.selected-character-display { width: 150px; height: 150px; border: 3px solid #555; background-color: #333; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; }
+.selected-character-display.confirmed { border-color: #4CAF50; }
+.confirm-button, .start-button { padding: 10px 20px; font-size: 1.2em; cursor: pointer; background-color: #5865F2; color: white; border: none; border-radius: 8px; transition: background-color 0.2s; }
+.confirm-button:hover, .start-button:hover { background-color: '#4752C4'; }
+.confirm-button:disabled, .start-button:disabled { background-color: '#555'; cursor: not-allowed; }
+.character-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+.character-card { width: 120px; height: 120px; border: 2px solid #444; background-color: #333; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; transition: transform 0.2s, border-color 0.2s; }
+.character-card:hover { transform: scale(1.05); border-color: '#777'; }
+.character-card.selected-p1 { border-color: blue; }
+.character-card.selected-p2 { border-color: red; }
+.character-card img { width: 80px; height: 80px; object-fit: contain; margin-bottom: 5px; }
+
+/* --- Game Over Screen --- */
+#game-over-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+#game-over-display.hidden { display: none; }
+#winner-text { font-size: 4em; margin-bottom: 20px; }
+#restart-button { padding: 15px 30px; font-size: 1.5em; cursor: pointer; background-color: #5865F2; color: white; border: none; border-radius: 8px; transition: background-color 0.2s; }
+#restart-button:hover { background-color: '#4752C4'; }
+
+/* --- Pause Screen --- */
+#pause-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+#pause-display.hidden { display: none; }
+#pause-text { font-size: 4em; margin-bottom: 20px; }
+#resume-button, #quit-button { padding: 15px 30px; font-size: 1.5em; cursor: pointer; background-color: #5865F2; color: white; border: none; border-radius: 8px; transition: background-color 0.2s; margin: 10px; }
+#resume-button:hover, #quit-button:hover { background-color: '#4752C4'; }
+
+/* --- Sound Toggle --- */
+#sound-toggle { position: absolute; top: 10px; right: 10px; padding: 10px; background-color: rgba(0, 0, 0, 0.5); border-radius: 5px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- ================================================== -->
+<!-- HTML: The game's structure -->
+<!-- ================================================== -->
+<div id="game-container">
+<!-- Character Select Screen -->
+<div id="character-select-display">
+<h1 class="select-header">Select Your Fighter</h1>
+<div class="selection-area">
+<div class="player-select-column">
+<h2>Player 1</h2>
+<div id="p1-selected" class="selected-character-display">None</div>
+<button id="p1-confirm" class="confirm-button" disabled>Confirm</button>
+</div>
+<div class="character-grid" id="character-grid"></div>
+<div class="player-select-column">
+<h2>Player 2</h2>
+<div id="p2-selected" class="selected-character-display">None</div>
+<button id="p2-confirm" class="confirm-button" disabled>Confirm</button>
+</div>
+</div>
+<button id="start-battle" class="start-button" style="margin-top: 20px;" disabled>Start Battle</button>
+</div>
+
+<!-- Game Canvas -->
+<canvas id="game-canvas"></canvas>
+
+<!-- Sound Toggle Button -->
+<div id="sound-toggle">🔊 Sound: ON</div>
+
+<!-- Pause Screen -->
+<div id="pause-display" class="hidden">
+<h1 id="pause-text">PAUSED</h1>
+<button id="resume-button">Resume</button>
+<button id="quit-button">Quit to Menu</button>
+</div>
+
+<!-- Game Over Screen -->
+<div id="game-over-display" class="hidden">
+<h1 id="winner-text"></h1>
+<button id="restart-button">Back to Select</button>
+</div>
+</div>
+
+<!-- ================================================== -->
+<!-- JavaScript: The game's logic -->
+<!-- ================================================== -->
+<script>
+// --- SETUP ---
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 1024;
+canvas.height = 576;
+const GRAVITY = 0.7;
+
+// --- UI ELEMENTS ---
+const characterSelectDisplay = document.getElementById('character-select-display');
+const characterGrid = document.getElementById('character-grid');
+const p1SelectedDisplay = document.getElementById('p1-selected');
+const p2SelectedDisplay = document.getElementById('p2-selected');
+const p1ConfirmButton = document.getElementById('p1-confirm');
+const p2ConfirmButton = document.getElementById('p2-confirm');
+const startBattleButton = document.getElementById('start-battle');
+const gameOverDisplay = document.getElementById('game-over-display');
+const winnerText = document.getElementById('winner-text');
+const restartButton = document.getElementById('restart-button');
+const pauseDisplay = document.getElementById('pause-display');
+const pauseText = document.getElementById('pause-text');
+const resumeButton = document.getElementById('resume-button');
+const quitButton = document.getElementById('quit-button');
+const soundToggle = document.getElementById('sound-toggle');
+
+// --- GAME STATE ---
+let gameState = 'SELECT';
+let player1Selection = null, player2Selection = null;
+let player1Confirmed = false, player2Confirmed = false;
+let player1, player2, projectiles = [];
+let animationFrame = 0;
+let isPaused = false;
+let soundEnabled = true;
+
+// --- TIME STOP VARIABLES ---
+let isTimeStopped = false;
+let timeStopper = null;
+let timeStopDuration = 5000; // 5 seconds
+
+// --- SOUND SYSTEM ---
+class SoundManager {
+constructor() {
+this.sounds = {
+menuSelect: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+menuConfirm: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+hit: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+timeStop: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+winner: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+// Character-specific sounds
+mikePunch: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+dioKnife: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+lebronBasketball: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE'),
+gokuEnergy: new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE')
+};
+}
+
+play(soundName) {
+if (!soundEnabled) return;
+try {
+const sound = this.sounds[soundName];
+if (sound) {
+sound.currentTime = 0;
+sound.play().catch(e => console.log('Sound play failed:', e));
+}
+} catch (e) {
+console.log('Sound error:', e);
+}
+}
+
+toggle() {
+soundEnabled = !soundEnabled;
+soundToggle.textContent = soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+return soundEnabled;
+}
+}
+
+const soundManager = new SoundManager();
+
+// --- PROJECTILE CLASSES ---
+class Projectile {
+constructor({ position, velocity, width, height, color, owner, image, type }) {
+this.position = position; this.velocity = velocity; this.width = width; this.height = height; this.color = color; this.owner = owner; this.image = image; this.type = type;
+this.rotation = 0; // For basketball rotation
+this.particles = []; // For energy blast particles
+this.frozenPosition = null; // Store position when frozen
+}
+draw() { 
+if (this.type === 'basketball' && this.image && this.imageLoaded) {
+// Draw rotating basketball
+ctx.save();
+ctx.translate(this.position.x + this.width/2, this.position.y + this.height/2);
+ctx.rotate(this.rotation);
+ctx.drawImage(this.image, -this.width/2, -this.height/2, this.width, this.height);
+ctx.restore();
+} else if (this.type === 'energyblast') {
+// Draw energy blast with particles
+// Main beam
+const gradient = ctx.createLinearGradient(
+this.position.x, this.position.y,
+this.position.x + this.width, this.position.y
+);
+gradient.addColorStop(0, 'rgba(0, 191, 255, 0.9)');
+gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
+gradient.addColorStop(1, 'rgba(0, 191, 255, 0.9)');
+ctx.fillStyle = gradient;
+ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    
+// Draw particles
+this.particles.forEach(particle => {
+ctx.beginPath();
+ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+ctx.fillStyle = `rgba(${particle.color}, ${particle.opacity})`;
+ctx.fill();
+});
+} else if (this.type === 'knife' && this.image && this.imageLoaded) {
+// Draw knife with proper rotation
+ctx.save();
+ctx.translate(this.position.x + this.width/2, this.position.y + this.height/2);
+if (this.velocity.x < 0) {
+ctx.scale(-1, 1);
+}
+ctx.drawImage(this.image, -this.width/2, -this.height/2, this.width, this.height);
+ctx.restore();
+} else {
+// Fallback to colored rectangle
+ctx.fillStyle = this.color; 
+ctx.fillRect(this.position.x, this.position.y, this.width, this.height); 
+}
+}
+update() { 
+// Don't update if time is stopped - ALL projectiles freeze during time stop
+if (isTimeStopped) {
+if (!this.frozenPosition) {
+this.frozenPosition = { x: this.position.x, y: this.position.y };
+}
+return;
+}
+    
+// Reset frozen position if time is no longer stopped
+if (!isTimeStopped && this.frozenPosition) {
+this.position = this.frozenPosition;
+this.frozenPosition = null;
+}
+    
+this.draw(); 
+this.position.x += this.velocity.x; 
+this.position.y += this.velocity.y;
+    
+// Update basketball rotation
+if (this.type === 'basketball') {
+this.rotation += 0.2;
+}
+    
+// Update energy blast particles
+if (this.type === 'energyblast') {
+// Add new particles
+for (let i = 0; i < 3; i++) {
+this.particles.push({
+x: this.position.x + Math.random() * this.width,
+y: this.position.y + Math.random() * this.height,
+size: Math.random() * 3 + 1,
+color: Math.random() > 0.5 ? '0, 191, 255' : '255, 255, 255',
+opacity: Math.random() * 0.5 + 0.5,
+velocity: {
+x: (Math.random() - 0.5) * 2,
+y: (Math.random() - 0.5) * 2
+}
+});
+}
+    
+// Update existing particles
+this.particles = this.particles.filter(particle => {
+particle.x += particle.velocity.x;
+particle.y += particle.velocity.y;
+particle.opacity -= 0.05;
+return particle.opacity > 0;
+});
+}
+}
+}
+class Kamehameha {
+constructor({ position, owner, direction }) {
+this.position = position; this.owner = owner; this.direction = direction;
+this.width = 10; this.maxWidth = 300; this.height = 20; this.growthSpeed = 15;
+this.frozenPosition = null; // Store position when frozen
+}
+draw() { 
+const gradient = ctx.createLinearGradient(
+this.position.x, this.position.y,
+this.position.x + this.width, this.position.y
+);
+gradient.addColorStop(0, 'rgba(0, 191, 255, 0.9)');
+gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
+gradient.addColorStop(1, 'rgba(0, 191, 255, 0.9)');
+ctx.fillStyle = gradient;
+ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+    
+// Add glow effect
+ctx.shadowBlur = 10;
+ctx.shadowColor = 'rgba(0, 191, 255, 0.8)';
+ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
+ctx.shadowBlur = 0;
+}
+update() { 
+// Don't update if time is stopped - ALL projectiles freeze during time stop
+if (isTimeStopped) {
+if (!this.frozenPosition) {
+this.frozenPosition = { x: this.position.x, y: this.position.y };
+}
+return;
+}
+    
+// Reset frozen position if time is no longer stopped
+if (!isTimeStopped && this.frozenPosition) {
+this.position = this.frozenPosition;
+this.frozenPosition = null;
+}
+    
+this.draw(); 
+if (this.width < this.maxWidth) { 
+this.width += this.growthSpeed; 
+if (this.direction === 'left') this.position.x -= this.growthSpeed; 
+} 
+}
+}
+
+// --- ARENA DRAWING FUNCTION ---
+function drawArena() {
+ctx.fillStyle = '#3D2817'; ctx.fillRect(0, 0, canvas.width, canvas.height - 100);
+ctx.fillStyle = '#5C3D2E'; ctx.fillRect(0, 0, canvas.width, 150);
+ctx.fillStyle = '#3D2817'; ctx.fillRect(50, 50, canvas.width - 100, 100);
+for (let i = 0; i < canvas.width; i += 15) { ctx.fillStyle = `hsl(${Math.random() * 360}, 70%, 50%)`; ctx.fillRect(i + Math.random() * 10, 20 + Math.random() * 20, 8, 8); }
+ctx.fillStyle = '#8B7355'; ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+ctx.fillStyle = '#6B5345';
+for (let i = 0; i < canvas.width; i += 40) { ctx.fillRect(i, canvas.height - 100, 2, 100); ctx.fillRect(i + 20, canvas.height - 80, 2, 80); }
+}
+
+// --- CHARACTER DATA WITH ENHANCED ATTACKS ---
+const characters = [
+{
+id: 'mike', name: 'Mike Tyson', width: 80, height: 120,
+image: 'https://z-cdn-media.chatglm.cn/files/fe5ac592-11ba-49b2-b73f-79c6d1b7fc23_mike%20tyson.jpeg?auth_key=1792775534-715f46c56b6b40f19b97182bde7ed02b-0-14f718bc5d58472bf3b24ad2ff8d2f98',
+gloveImage: 'https://picsum.photos/seed/boxingglove/60/40.jpg',
+draw: (sprite) => {
+const { position, facing, isBlocking, characterData } = sprite;
+if (characterData.imageLoaded) {
+// Calculate squash and stretch values
+let scaleX = 1.0;
+let scaleY = 1.0;
+let offsetY = 0;
+
+if (sprite.isAttacking) {
+// Squash horizontally and stretch vertically when attacking
+scaleX = 0.8;
+scaleY = 1.2;
+offsetY = -sprite.height * 0.1;
+} else if (sprite.isBlocking) {
+// Squash vertically when blocking
+scaleX = 1.1;
+scaleY = 0.9;
+} else if (Math.abs(sprite.velocity.x) > 0.1) {
+// Alternate squash and stretch when walking
+const walkCycle = Math.sin(animationFrame * 0.2) * 0.1;
+scaleX = 1.0 - walkCycle;
+scaleY = 1.0 + walkCycle;
+offsetY = -Math.abs(walkCycle) * sprite.height * 0.5;
+} else {
+// Subtle breathing animation when idle
+const breatheCycle = Math.sin(animationFrame * 0.05) * 0.05;
+scaleY = 1.0 + breatheCycle;
+scaleX = 1.0 - breatheCycle * 0.5;
+offsetY = -breatheCycle * sprite.height * 0.5;
+}
+
+// Apply transformations
+ctx.save();
+ctx.translate(position.x + sprite.width/2, position.y + sprite.height/2 + offsetY);
+if (facing === 'left') {
+ctx.scale(-scaleX, scaleY);
+} else {
+ctx.scale(scaleX, scaleY);
+}
+
+// Draw with transparent background
+ctx.globalCompositeOperation = 'source-over';
+ctx.drawImage(characterData.image, -sprite.width/2, -sprite.height/2, sprite.width, sprite.height);
+ctx.restore();
+} else {
+// Fallback to placeholder if image not loaded
+ctx.fillStyle = isBlocking ? '#555' : '#8B4513';
+ctx.fillRect(position.x, position.y, sprite.width, sprite.height);
+ctx.fillStyle = '#000';
+ctx.font = '12px Arial';
+ctx.fillText('Mike', position.x + 10, position.y + sprite.height/2);
+}
+},
+attack: (sprite) => {
+if (sprite.isAttacking || sprite.isBlocking) return;
+sprite.isAttacking = true;
+soundManager.play('mikePunch');
+const { position, width, height, facing } = sprite;
+const direction = facing === 'right' ? 1 : -1;
+    
+// Create boxing glove punch effect
+const gloveProjectile = new Projectile({
+position: { x: position.x + (direction > 0 ? width : -60), y: position.y + 30 },
+velocity: { x: 15 * direction, y: 0 }, 
+width: 60, 
+height: 40,
+color: '#8B0000', 
+owner: sprite,
+type: 'glove'
+});
+
+// Load glove image
+const gloveImg = new Image();
+gloveImg.onload = function() {
+gloveProjectile.imageLoaded = true;
+gloveProjectile.image = gloveImg;
+};
+gloveImg.onerror = function() {
+gloveProjectile.imageLoaded = false;
+console.error('Failed to load glove image');
+};
+gloveImg.src = sprite.characterData.gloveImage;
+
+projectiles.push(gloveProjectile);
+    
+// Set attack hitbox
+sprite.currentAttackHitbox = {
+position: { x: position.x + (direction > 0 ? width : -30), y: position.y + 20 },
+width: 30, height: 40
+};
+    
+setTimeout(() => { sprite.isAttacking = false; sprite.currentAttackHitbox = null; }, 300);
+},
+drawWeapon: (sprite) => { /* No weapon to draw for projectile */ }
+},
+{
+id: 'spongebob', name: 'Spongebob', width: 80, height: 100,
+image: 'https://z-cdn-media.chatglm.cn/files/cca41861-e728-49fe-8363-4c6f220d4147_spongebob.jpeg?auth_key=1792775534-2ccf146f4f914b1b8fabedb70a8c03b-0-bb2489d53e553b7bbf4ec75c240ae244',
+draw: (sprite) => {
+const { position, facing, isBlocking, characterData } = sprite;
+if (characterData.imageLoaded) {
+// Calculate squash and stretch values
+let scaleX = 1.0;
+let scaleY = 1.0;
+let offsetY = 0;
+
+if (sprite.isAttacking) {
+// Squash horizontally and stretch vertically when attacking
+scaleX = 0.8;
+scaleY = 1.2;
+offsetY = -sprite.height * 0.1;
+} else if (sprite.isBlocking) {
+// Squash vertically when blocking
+scaleX = 1.1;
+scaleY = 0.9;
+} else if (Math.abs(sprite.velocity.x) > 0.1) {
+// Alternate squash and stretch when walking
+const walkCycle = Math.sin(animationFrame * 0.2) * 0.1;
+scaleX = 1.0 - walkCycle;
+scaleY = 1.0 + walkCycle;
+offsetY = -Math.abs(walkCycle) * sprite.height * 0.5;
+} else {
+// Subtle breathing animation when idle
+const breatheCycle = Math.sin(animationFrame * 0.05) * 0.05;
+scaleY = 1.0 + breatheCycle;
+scaleX = 1.0 - breatheCycle * 0.5;
+offsetY = -breatheCycle * sprite.height * 0.5;
+}
+
+// Apply transformations
+ctx.save();
+ctx.translate(position.x + sprite.width/2, position.y + sprite.height/2 + offsetY);
+if (facing === 'left') {
+ctx.scale(-scaleX, scaleY);
+} else {
+ctx.scale(scaleX, scaleY);
+}
+
+// Draw with transparent background
+ctx.globalCompositeOperation = 'source-over';
+ctx.drawImage(characterData.image, -sprite.width/2, -sprite.height/2, sprite.width, sprite.height);
+ctx.restore();
+} else {
+// Fallback to placeholder if image not loaded
+ctx.fillStyle = isBlocking ? '#555' : '#F0E68C';
+ctx.fillRect(position.x, position.y, sprite.width, sprite.height);
+ctx.fillStyle = '#000';
+ctx.font = '12px Arial';
+ctx.fillText('Sponge', position.x + 10, position.y + sprite.height/2);
+}
+},
+attack: (sprite) => {
+if (sprite.isAttacking || sprite.isBlocking) return;
+sprite.isAttacking = true;
+soundManager.play('characterAttack');
+const { position, width, height, facing } = sprite;
+const direction = facing === 'right' ? 1 : -1;
+sprite.currentAttackHitbox = {
+position: { x: position.x + (direction > 0 ? width : -30), y: position.y + 20 },
+width: 30, height: 40
+};
+setTimeout(() => { sprite.isAttacking = false; sprite.currentAttackHitbox = null; }, 300);
+},
+drawWeapon: (sprite) => { /* No weapon for Spongebob */ }
+},
+{
+id: 'squidward', name: 'Squidward', width: 70, height: 110,
+image: 'https://z-cdn-media.chatglm.cn/files/6b14dfe0-a7de-4d35-9ce8-e2ce5ed06ecd_squidward.png?auth_key=1792775534-1d84157887014e8b87c8498b73cfc074-0-930a12ee6c246df602681bd47e3b813e',
+draw: (sprite) => {
+const { position, facing, isBlocking, characterData } = sprite;
+if (characterData.imageLoaded) {
+// Calculate squash and stretch values
+let scaleX = 1.0;
+let scaleY = 1.0;
+let offsetY = 0;
+
+if (sprite.isAttacking) {
+// Squash horizontally and stretch vertically when attacking
+scaleX = 0.8;
+scaleY = 1.2;
+offsetY = -sprite.height * 0.1;
+} else if (sprite.isBlocking) {
+// Squash vertically when blocking
+scaleX = 1.1;
+scaleY = 0.9;
+} else if (Math.abs(sprite.velocity.x) > 0.1) {
+// Alternate squash and stretch when walking
+const walkCycle = Math.sin(animationFrame * 0.2) * 0.1;
+scaleX = 1.0 - walkCycle;
+scaleY = 1.0 + walkCycle;
+offsetY = -Math.abs(walkCycle) * sprite.height * 0.5;
+} else {
+// Subtle breathing animation when idle
+const breatheCycle = Math.sin(animationFrame * 0.05) * 0.05;
+scaleY = 1.0 + breatheCycle;
+scaleX = 1.0 - breatheCycle * 0.5;
+offsetY = -breatheCycle * sprite.height * 0.5;
+}
+
+// Apply transformations
+ctx.save();
+ctx.translate(position.x + sprite.width/2, position.y + sprite.height/2 + offsetY);
+if (facing === 'left') {
+ctx.scale(-scaleX, scaleY);
+} else {
+ctx.scale(scaleX, scaleY);
+}
+
+// Draw with transparent background
+ctx.globalCompositeOperation = 'source-over';
+ctx.drawImage(characterData.image, -sprite.width/2, -sprite.height/2, sprite.width, sprite.height);
+ctx.restore();
+} else {
+// Fallback to placeholder if image not loaded
+ctx.fillStyle = isBlocking ? '#555' : '#9370DB';
+ctx.fillRect(position.x, position.y, sprite.width, sprite.height);
+ctx.fillStyle = '#000';
+ctx.font = '12px Arial';
+ctx.fillText('Squid', position.x + 10, position.y + sprite.height/2);
+}
+},
+attack: (sprite) => {
+if (sprite.isAttacking || sprite.isBlocking) return;
+sprite.isAttacking = true;
+soundManager.play('characterAttack');
+const { position, width, height, facing } = sprite;
+const direction = facing === 'right' ? 1 : -1;
+sprite.currentAttackHitbox = {
+position: { x: position.x + (direction > 0 ? width : -30), y: position.y + 20 },
+width: 30, height: 40
+};
+setTimeout(() => { sprite.isAttacking = false; sprite.currentAttackHitbox = null; }, 300);
+},
+drawWeapon: (sprite) => { /* No weapon for Squidward */ }
+},
+{
+id: 'lebron', name: 'LeBron James', width: 80, height: 110,
+image: 'https://z-cdn-media.chatglm.cn/files/0596e7c9-f1f5-4488-9613-f394e137ce4a_lebron%20james.png?auth_key=1792775534-5d64d417e0344ca7814c34cd7d253cab-0-9fe4c698066e9f8b8cc2c1e052a5bbec',
+basketballImage: 'https://z-cdn-media.chatglm.cn/files/731a2dc7-da22-45ff-9e82-112062f76215_basketball.png?auth_key=1792789459-ba075a0d8c28435bac0516b67c7c4fe4-0-63eff5626a80b1bfdf851e8b3a5d0726',
+draw: (sprite) => {
+const { position, facing, isBlocking, characterData } = sprite;
+if (characterData.imageLoaded) {
+// Calculate squash and stretch values
+let scaleX = 1.0;
+let scaleY = 1.0;
+let offsetY = 0;
+
+if (sprite.isAttacking) {
+// Squash horizontally and stretch vertically when attacking
+scaleX = 0.8;
+scaleY = 1.2;
+offsetY = -sprite.height * 0.1;
+} else if (sprite.isBlocking) {
+// Squash vertically when blocking
+scaleX = 1.1;
+scaleY = 0.9;
+} else if (Math.abs(sprite.velocity.x) > 0.1) {
+// Alternate squash and stretch when walking
+const walkCycle = Math.sin(animationFrame * 0.2) * 0.1;
+scaleX = 1.0 - walkCycle;
+scaleY = 1.0 + walkCycle;
+offsetY = -Math.abs(walkCycle) * sprite.height * 0.5;
+} else {
+// Subtle breathing animation when idle
+const breatheCycle = Math.sin(animationFrame * 0.05) * 0.05;
+scaleY = 1.0 + breatheCycle;
+scaleX = 1.0 - breatheCycle * 0.5;
+offsetY = -breatheCycle * sprite.height * 0.5;
+}
+
+// Apply transformations
+ctx.save();
+ctx.translate(position.x + sprite.width/2, position.y + sprite.height/2 + offsetY);
+if (facing === 'left') {
+ctx.scale(-scaleX, scaleY);
+} else {
+ctx.scale(scaleX, scaleY);
+}
+
+// Draw with transparent background
+ctx.globalCompositeOperation = 'source-over';
+ctx.drawImage(characterData.image, -sprite.width/2, -sprite.height/2, sprite.width, sprite.height);
+ctx.restore();
+} else {
+// Fallback to placeholder if image not loaded
+ctx.fillStyle = isBlocking ? '#555' : '#8B0000';
+ctx.fillRect(position.x, position.y, sprite.width, sprite.height);
+ctx.fillStyle = '#FFF';
+ctx.font = '12px Arial';
+ctx.fillText('LeBron', position.x + 10, position.y + sprite.height/2);
+}
+},
+attack: (sprite) => {
+if (sprite.isAttacking || sprite.isBlocking) return;
+sprite.isAttacking = true;
+soundManager.play('lebronBasketball');
+const { position, width, height, facing } = sprite;
+const direction = facing === 'right' ? 1 : -1;
+    
+// Create basketball projectile with arc trajectory
+const basketballProjectile = new Projectile({
+position: { x: position.x + width / 2 - 20, y: position.y + 20 },
+velocity: { x: 10 * direction, y: -8 }, // Arc trajectory
+width: 40, 
+height: 40,
+color: '#FF6600', 
+owner: sprite,
+type: 'basketball'
+});
+
+// Load basketball image
+const basketballImg = new Image();
+basketballImg.onload = function() {
+basketballProjectile.imageLoaded = true;
+basketballProjectile.image = basketballImg;
+};
+basketballImg.onerror = function() {
+basketballProjectile.imageLoaded = false;
+console.error('Failed to load basketball image');
+};
+basketballImg.src = sprite.characterData.basketballImage;
+
+projectiles.push(basketballProjectile);
+    
+// Set attack hitbox
+sprite.currentAttackHitbox = {
+position: { x: position.x + (direction > 0 ? width : -30), y: position.y + 20 },
+width: 30, height: 40
+};
+    
+setTimeout(() => { sprite.isAttacking = false; sprite.currentAttackHitbox = null; }, 300);
+},
+drawWeapon: (sprite) => { /* No weapon for LeBron */ }
+},
+{
+id: 'goku', name: 'Goku', width: 70, height: 100,
+image: 'https://z-cdn-media.chatglm.cn/files/38e000d4-9e15-4257-8024-18c2a36818b6_goku.jpeg?auth_key=1792775534-ddb529e030c544cfb13888b05a3623e6-0-19042ee8322af22efee456a31a88e907',
+draw: (sprite) => {
+const { position, facing, isBlocking, characterData } = sprite;
+if (characterData.imageLoaded) {
+// Calculate squash and stretch values
+let scaleX = 1.0;
+let scaleY = 1.0;
+let offsetY = 0;
+
+if (sprite.isAttacking) {
+// Squash horizontally and stretch vertically when attacking
+scaleX = 0.8;
+scaleY = 1.2;
+offsetY = -sprite.height * 0.1;
+} else if (sprite.isBlocking) {
+// Squash vertically when blocking
+scaleX = 1.1;
+scaleY = 0.9;
+} else if (Math.abs(sprite.velocity.x) > 0.1) {
+// Alternate squash and stretch when walking
+const walkCycle = Math.sin(animationFrame * 0.2) * 0.1;
+scaleX = 1.0 - walkCycle;
+scaleY = 1.0 + walkCycle;
+offsetY = -Math.abs(walkCycle) * sprite.height * 0.5;
+} else {
+// Subtle breathing animation when idle
+const breatheCycle = Math.sin(animationFrame * 0.05) * 0.05;
+scaleY = 1.0 + breatheCycle;
+scaleX = 1.0 - breatheCycle * 0.5;
+offsetY = -breatheCycle * sprite.height * 0.5;
+}
+
+// Apply transformations
+ctx.save();
+ctx.translate(position.x + sprite.width/2, position.y + sprite.height/2 + offsetY);
+if (facing === 'left') {
+ctx.scale(-scaleX, scaleY);
+} else {
+ctx.scale(scaleX, scaleY);
+}
+
+// Draw with transparent background
+ctx.globalCompositeOperation = 'source-over';
+ctx.drawImage(characterData.image, -sprite.width/2, -sprite.height/2, sprite.width, sprite.height);
+ctx.restore();
+} else {
+// Fallback to placeholder if image not loaded
+ctx.fillStyle = isBlocking ? '#555' : '#FFA500';
+ctx.fillRect(position.x, position.y, sprite.width, sprite.height);
+ctx.fillStyle = '#000';
+ctx.font = '12px Arial';
+ctx.fillText('Goku', position.x + 10, position.y + sprite.height/2);
+}
+},
+attack: (sprite) => {
+if (sprite.isAttacking || sprite.isBlocking) return;
+sprite.isAttacking = true;
+soundManager.play('gokuEnergy');
+const { position, width, height, facing } = sprite;
+const direction = facing === 'right' ? 1 : -1;
+    
+// Create longer energy blast
+const energyBlast = new Projectile({
+position: { x: position.x + (direction > 0 ? width : -200), y: position.y + 30 },
+velocity: { x: 5 * direction, y: 0 }, 
+width: 200, 
+height: 15,
+color: '#00BFFF', 
+owner: sprite,
+type: 'energyblast'
+});
+
+projectiles.push(energyBlast);
+    
+// Set attack hitbox
+sprite.currentAttackHitbox = {
+position: { x: position.x + (direction > 0 ? width : -30), y: position.y + 20 },
+width: 30, height: 40
+};
+    
+setTimeout(() => { sprite.isAttacking = false; sprite.currentAttackHitbox = null; }, 300);
+},
+drawWeapon: (sprite) => { /* No weapon for Goku */ }
+},
+// --- DIO CHARACTER ---
+{
+id: 'dio', name: 'Dio', width: 75, height: 115,
+image: 'https://z-cdn-media.chatglm.cn/files/3593e35e-d2ea-4ed5-87b8-ded93dd98e89_dio.jpeg?auth_key=1792775534-e25e9eaa36ca422392d323e40634ca7e-0-ea90705f9dafd67b21ac41115561caff',
+knifeImage: 'https://z-cdn-media.chatglm.cn/files/06d4d870-0a4c-463d-8304-354604626d32_knife.png?auth_key=1792775534-51c8531b144d4112864327a1224feb5e-0-c3b60ca550ad1e89bf501239dbe11685',
+draw: (sprite) => {
+const { position, facing, isBlocking, characterData } = sprite;
+if (characterData.imageLoaded) {
+// Calculate squash and stretch values
+let scaleX = 1.0;
+let scaleY = 1.0;
+let offsetY = 0;
+
+if (sprite.isAttacking) {
+// Squash horizontally and stretch vertically when attacking
+scaleX = 0.8;
+scaleY = 1.2;
+offsetY = -sprite.height * 0.1;
+} else if (sprite.isBlocking) {
+// Squash vertically when blocking
+scaleX = 1.1;
+scaleY = 0.9;
+} else if (Math.abs(sprite.velocity.x) > 0.1) {
+// Alternate squash and stretch when walking
+const walkCycle = Math.sin(animationFrame * 0.2) * 0.1;
+scaleX = 1.0 - walkCycle;
+scaleY = 1.0 + walkCycle;
+offsetY = -Math.abs(walkCycle) * sprite.height * 0.5;
+} else {
+// Subtle breathing animation when idle
+const breatheCycle = Math.sin(animationFrame * 0.05) * 0.05;
+scaleY = 1.0 + breatheCycle;
+scaleX = 1.0 - breatheCycle * 0.5;
+offsetY = -breatheCycle * sprite.height * 0.5;
+}
+
+// Apply transformations
+ctx.save();
+ctx.translate(position.x + sprite.width/2, position.y + sprite.height/2 + offsetY);
+if (facing === 'left') {
+ctx.scale(-scaleX, scaleY);
+} else {
+ctx.scale(scaleX, scaleY);
+}
+
+// Draw with transparent background
+ctx.globalCompositeOperation = 'source-over';
+ctx.drawImage(characterData.image, -sprite.width/2, -sprite.height/2, sprite.width, sprite.height);
+ctx.restore();
+} else {
+// Fallback to placeholder if image not loaded
+ctx.fillStyle = isBlocking ? '#555' : '#FFD700';
+ctx.fillRect(position.x, position.y, sprite.width, sprite.height);
+ctx.fillStyle = '#000';
+ctx.font = '12px Arial';
+ctx.fillText('Dio', position.x + 10, position.y + sprite.height/2);
+}
+},
+attack: (sprite) => { // Knife Throw
+if (sprite.isAttacking || sprite.isBlocking) return;
+sprite.isAttacking = true;
+soundManager.play('dioKnife');
+const { position, width, height, facing } = sprite;
+const direction = facing === 'right' ? 1 : -1;
+
+// Create knife projectile with image
+const knifeProjectile = new Projectile({
+position: { x: position.x + width / 2 - 15, y: position.y + 20 },
+velocity: { x: 12 * direction, y: 0 }, 
+width: 30, 
+height: 20,
+color: '#C0C0C0', 
+owner: sprite,
+type: 'knife'
+});
+
+// Load knife image
+const knifeImg = new Image();
+knifeImg.onload = function() {
+knifeProjectile.imageLoaded = true;
+knifeProjectile.image = knifeImg;
+};
+knifeImg.onerror = function() {
+knifeProjectile.imageLoaded = false;
+console.error('Failed to load knife image');
+};
+knifeImg.src = sprite.characterData.knifeImage;
+
+projectiles.push(knifeProjectile);
+setTimeout(() => { sprite.isAttacking = false; }, 300);
+},
+drawWeapon: (sprite) => { /* No weapon to draw for projectile */ },
+// --- DIO'S SPECIAL ATTACK ---
+specialAttack: (sprite) => {
+if (isTimeStopped || !sprite.canTimeStop || sprite.isBlocking || sprite.isAttacking) return;
+
+sprite.canTimeStop = false;
+sprite.isInitiatingTimeStop = true;
+sprite.timeStopAnimationProgress = 0;
+sprite.timeStopCircleRadius = 10;
+soundManager.play('timeStop');
+// Make Dio jump
+sprite.velocity.y = -18;
+}
+}
+];
+
+// --- CLASSES ---
+class Sprite {
+constructor({ position, velocity, characterData, facing }) {
+this.position = position; this.velocity = velocity; this.characterData = characterData;
+this.width = characterData.width; this.height = characterData.height;
+this.isAttacking = false; this.health = 100; this.isBlocking = false; this.lastKey;
+this.facing = facing;
+this.currentAttackHitbox = null;
+// --- PROPERTIES FOR TIME STOP ---
+this.canTimeStop = true;
+this.isInitiatingTimeStop = false;
+this.timeStopAnimationProgress = 0;
+this.timeStopCircleRadius = 10;
+this.frozenPosition = null; // Store position when frozen
+}
+draw() { 
+// Always draw the character at their current position
+this.characterData.draw(this); 
+this.characterData.drawWeapon(this); 
+}
+update() {
+// Don't update position if time is stopped and this is not the time stopper
+if (isTimeStopped && this !== timeStopper) {
+if (!this.frozenPosition) {
+this.frozenPosition = { x: this.position.x, y: this.position.y };
+}
+return;
+}
+    
+// Reset frozen position if time is no longer stopped
+if (!isTimeStopped && this.frozenPosition) {
+this.position = this.frozenPosition;
+this.frozenPosition = null;
+}
+    
+this.draw();
+this.position.y += this.velocity.y;
+this.position.x += this.velocity.x;
+if (this.position.y + this.height + this.velocity.y < canvas.height) { this.velocity.y += GRAVITY; } else { this.velocity.y = 0; }
+}
+attack() { this.characterData.attack(this); }
+specialAttack() { if (this.characterData.specialAttack) this.characterData.specialAttack(this); }
+}
+
+// --- CHARACTER SELECT LOGIC ---
+function initializeCharacterSelect() { 
+characters.forEach(char => { 
+// Load character image
+const img = new Image();
+img.onload = function() {
+char.imageLoaded = true;
+char.image = img;
+};
+img.onerror = function() {
+char.imageLoaded = false;
+console.error(`Failed to load image for ${char.name}`);
+};
+img.src = char.image;
+
+// Load additional images for specific characters
+if (char.id === 'dio' && char.knifeImage) {
+const knifeImg = new Image();
+knifeImg.onload = function() {
+char.knifeImageLoaded = true;
+char.knifeImageObj = knifeImg;
+};
+knifeImg.onerror = function() {
+char.knifeImageLoaded = false;
+console.error('Failed to load knife image');
+};
+knifeImg.src = char.knifeImage;
+}
+
+if (char.id === 'lebron' && char.basketballImage) {
+const basketballImg = new Image();
+basketballImg.onload = function() {
+char.basketballImageLoaded = true;
+char.basketballImageObj = basketballImg;
+};
+basketballImg.onerror = function() {
+char.basketballImageLoaded = false;
+console.error('Failed to load basketball image');
+};
+basketballImg.src = char.basketballImage;
+}
+
+if (char.id === 'mike' && char.gloveImage) {
+const gloveImg = new Image();
+gloveImg.onload = function() {
+char.gloveImageLoaded = true;
+char.gloveImageObj = gloveImg;
+};
+gloveImg.onerror = function() {
+char.gloveImageLoaded = false;
+console.error('Failed to load glove image');
+};
+gloveImg.src = char.gloveImage;
+}
+
+const card = document.createElement('div'); 
+card.className = 'character-card'; 
+card.dataset.characterId = char.id; 
+
+// Add image to character card
+const cardImg = document.createElement('img');
+cardImg.src = char.image;
+cardImg.alt = char.name;
+card.appendChild(cardImg);
+
+const cardName = document.createElement('div');
+cardName.innerHTML = `<strong>${char.name}</strong>`;
+card.appendChild(cardName);
+
+card.addEventListener('click', () => {
+soundManager.play('menuSelect');
+selectCharacter(char.id);
+}); 
+characterGrid.appendChild(card); 
+}); 
+}
+
+function selectCharacter(charId) { 
+if (gameState !== 'SELECT') return; 
+if (!player1Confirmed) { 
+player1Selection = charId; 
+updateSelectDisplay(); 
+} else if (!player2Confirmed) { 
+player2Selection = charId; 
+updateSelectDisplay(); 
+} 
+}
+
+function updateSelectDisplay() {
+const p1Char = characters.find(c => c.id === player1Selection); 
+p1SelectedDisplay.innerHTML = p1Char ? p1Char.name : 'None'; 
+p1ConfirmButton.disabled = !p1Char; 
+document.querySelectorAll('.character-card.selected-p1').forEach(c => c.classList.remove('selected-p1')); 
+if (p1Char) document.querySelector(`[data-character-id="${p1Char.id}"]`).classList.add('selected-p1');
+
+const p2Char = characters.find(c => c.id === player2Selection); 
+p2SelectedDisplay.innerHTML = p2Char ? p2Char.name : 'None'; 
+p2ConfirmButton.disabled = !p2Char; 
+document.querySelectorAll('.character-card.selected-p2').forEach(c => c.classList.remove('selected-p2')); 
+if (p2Char) document.querySelector(`[data-character-id="${p2Char.id}"]`).classList.add('selected-p2');
+}
+
+p1ConfirmButton.addEventListener('click', () => { 
+soundManager.play('menuConfirm');
+player1Confirmed = true; 
+p1SelectedDisplay.classList.add('confirmed'); 
+checkReadyToStart(); 
+});
+
+p2ConfirmButton.addEventListener('click', () => { 
+soundManager.play('menuConfirm');
+player2Confirmed = true; 
+p2SelectedDisplay.classList.add('confirmed'); 
+checkReadyToStart(); 
+});
+
+function checkReadyToStart() { 
+if (player1Confirmed && player2Confirmed) startBattleButton.disabled = false; 
+}
+
+startBattleButton.addEventListener('click', () => {
+soundManager.play('menuConfirm');
+startBattle();
+});
+
+// --- GAME START ---
+function startBattle() { 
+gameState = 'BATTLE'; 
+characterSelectDisplay.classList.add('hidden'); 
+const p1Data = characters.find(c => c.id === player1Selection); 
+const p2Data = characters.find(c => c.id === player2Selection); 
+player1 = new Sprite({ position: { x: 100, y: 0 }, velocity: { x: 0, y: 0 }, characterData: p1Data, facing: 'right' }); 
+player2 = new Sprite({ position: { x: 700, y: 0 }, velocity: { x: 0, y: 0 }, characterData: p2Data, facing: 'left' }); 
+resetBattleState(); 
+animate(); 
+}
+
+function resetBattleState() { 
+player1.health = 100; 
+player2.health = 100; 
+player1.position = { x: 100, y: 0 }; 
+player2.position = { x: 700, y: 0 }; 
+player1.velocity = { x: 0, y: 0 }; 
+player2.velocity = { x: 0, y: 0 }; 
+player1.isBlocking = false; 
+player2.isBlocking = false; 
+projectiles = []; 
+gameOver = false; 
+gameOverDisplay.classList.add('hidden'); 
+timer = 60; 
+isTimeStopped = false; 
+timeStopper = null; 
+}
+
+// --- PAUSE FUNCTIONALITY ---
+function togglePause() {
+if (gameState !== 'BATTLE') return;
+    
+isPaused = !isPaused;
+if (isPaused) {
+pauseDisplay.classList.remove('hidden');
+} else {
+pauseDisplay.classList.add('hidden');
+animate();
+}
+}
+
+// --- INPUT HANDLING ---
+const keys = { 
+a: { pressed: false }, 
+d: { pressed: false }, 
+w: { pressed: false }, 
+ArrowLeft: { pressed: false }, 
+ArrowRight: { pressed: false }, 
+ArrowUp: { pressed: false } 
+};
+
+window.addEventListener('keydown', (event) => { 
+// Handle pause key (Escape or P)
+if (event.key === 'Escape' || event.key === 'p' || event.key === 'P') {
+togglePause();
+return;
+}
+
+if (gameState !== 'BATTLE' || gameOver || isPaused) return;
+switch (event.key) { 
+case 'd': keys.d.pressed = true; player1.lastKey = 'd'; break; 
+case 'a': keys.a.pressed = true; player1.lastKey = 'a'; break; 
+case 'w': if (player1.position.y + player1.height >= canvas.height - 10) player1.velocity.y = -15; break; 
+case ' ': player1.attack(); break; 
+case 's': player1.isBlocking = true; break; 
+case 'q': player1.specialAttack(); break; // P1 Special
+case 'ArrowRight': keys.ArrowRight.pressed = true; player2.lastKey = 'ArrowRight'; break; 
+case 'ArrowLeft': keys.ArrowLeft.pressed = true; player2.lastKey = 'ArrowLeft'; break; 
+case 'ArrowUp': if (player2.position.y + player2.height >= canvas.height - 10) player2.velocity.y = -15; break; 
+case 'ArrowDown': player2.attack(); break; 
+} 
+if (event.key === 'Shift') { player2.isBlocking = true; } 
+if (event.ctrlKey) { player2.specialAttack(); } // P2 Special
+});
+
+window.addEventListener('keyup', (event) => { 
+switch (event.key) { 
+case 'd': keys.d.pressed = false; break; 
+case 'a': keys.a.pressed = false; break; 
+case 's': player1.isBlocking = false; break; 
+case 'ArrowRight': keys.ArrowRight.pressed = false; break; 
+case 'ArrowLeft': keys.ArrowLeft.pressed = false; break; 
+case 'Shift': player2.isBlocking = false; break; 
+} 
+});
+
+// --- PAUSE BUTTON EVENT LISTENERS ---
+resumeButton.addEventListener('click', () => {
+togglePause();
+});
+
+quitButton.addEventListener('click', () => {
+isPaused = false;
+pauseDisplay.classList.add('hidden');
+gameState = 'SELECT';
+gameOverDisplay.classList.add('hidden');
+characterSelectDisplay.classList.remove('hidden');
+player1Selection = null; 
+player2Selection = null; 
+player1Confirmed = false; 
+player2Confirmed = false;
+p1SelectedDisplay.classList.remove('confirmed'); 
+p2SelectedDisplay.classList.remove('confirmed');
+p1ConfirmButton.disabled = true; 
+p2ConfirmButton.disabled = true; 
+startBattleButton.disabled = true;
+updateSelectDisplay();
+});
+
+// --- SOUND TOGGLE EVENT LISTENER ---
+soundToggle.addEventListener('click', () => {
+soundManager.toggle();
+});
+
+// --- COLLISION & UI ---
+function rectangularCollision({ rectangle1, rectangle2 }) { 
+return ( 
+rectangle1.position.x + rectangle1.width >= rectangle2.position.x && 
+rectangle1.position.x <= rectangle2.position.x + rectangle2.width && 
+rectangle1.position.y + rectangle1.height >= rectangle2.position.y && 
+rectangle1.position.y <= rectangle2.position.y + rectangle2.height 
+); 
+}
+
+function drawUI() { 
+ctx.fillStyle = '#555'; 
+ctx.fillRect(30, 30, 400, 40); 
+ctx.fillRect(canvas.width - 430, 30, 400, 40); 
+ctx.fillStyle = '#4CAF50'; 
+const p1HealthWidth = (player1.health / 100) * 400; 
+ctx.fillRect(30, 30, p1HealthWidth, 40); 
+ctx.font = '24px Arial'; 
+ctx.fillStyle = 'white'; 
+ctx.textAlign = 'left'; 
+ctx.fillText(player1.characterData.name, 35, 58); 
+ctx.fillStyle = '#f44336'; 
+const p2HealthWidth = (player2.health / 100) * 400; 
+ctx.fillRect(canvas.width - 430, 30, p2HealthWidth, 40); 
+ctx.font = '24px Arial'; 
+ctx.fillStyle = 'white'; 
+ctx.textAlign = 'right'; 
+ctx.fillText(player2.characterData.name, canvas.width - 35, 58); 
+ctx.font = '48px Arial'; 
+ctx.fillStyle = 'white'; 
+ctx.textAlign = 'center'; 
+ctx.fillText(timer, canvas.width / 2, 60); 
+}
+
+function determineWinner() { 
+gameOver = true; 
+gameOverDisplay.classList.remove('hidden'); 
+soundManager.play('winner');
+if (player1.health === player2.health) winnerText.innerHTML = 'Tie!'; 
+else if (player1.health > player2.health) winnerText.innerHTML = `${player1.characterData.name} Wins!`; 
+else winnerText.innerHTML = `${player2.characterData.name} Wins!`; 
+}
+
+function decreaseTimer() { 
+if (gameOver || isPaused) return; 
+if (timer > 0) { timer--; } 
+if (timer === 0) { determineWinner(); } 
+} 
+
+setInterval(decreaseTimer, 1000);
+
+// --- ANIMATION LOOP ---
+let timer = 60; 
+let gameOver = false;
+
+function animate() {
+if (gameState !== 'BATTLE' || isPaused) return;
+window.requestAnimationFrame(animate);
+
+// Increment animation frame counter
+animationFrame++;
+
+// Draw Arena
+drawArena();
+
+// --- TIME STOP LOGIC ---
+let activeTimeStopper = null;
+if (player1.isInitiatingTimeStop) activeTimeStopper = player1;
+if (player2.isInitiatingTimeStop) activeTimeStopper = player2;
+
+if (activeTimeStopper) {
+activeTimeStopper.timeStopAnimationProgress += 0.02; // 0.5 sec animation at 60fps
+activeTimeStopper.timeStopCircleRadius = 10 + (canvas.width * activeTimeStopper.timeStopAnimationProgress);
+
+// Draw expanding circle with color inversion
+ctx.save();
+ctx.globalCompositeOperation = 'difference';
+ctx.fillStyle = 'white';
+ctx.beginPath();
+ctx.arc(activeTimeStopper.position.x + activeTimeStopper.width / 2, activeTimeStopper.position.y + activeTimeStopper.height / 2, activeTimeStopper.timeStopCircleRadius, 0, Math.PI * 2);
+ctx.fill();
+ctx.restore();
+
+if (activeTimeStopper.timeStopAnimationProgress >= 1) {
+isTimeStopped = true;
+timeStopper = activeTimeStopper;
+activeTimeStopper.isInitiatingTimeStop = false;
+setTimeout(() => {
+isTimeStopped = false;
+timeStopper.canTimeStop = false; // Start cooldown
+setTimeout(() => { timeStopper.canTimeStop = true; }, 10000); // 10s cooldown
+timeStopper = null;
+}, timeStopDuration);
+}
+}
+
+// Apply time stop effect
+if (isTimeStopped) {
+ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+// Add visual effect to frozen characters
+if (timeStopper === player1) {
+// Draw frozen effect on player 2
+ctx.save();
+ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
+ctx.lineWidth = 2;
+ctx.strokeRect(player2.position.x - 5, player2.position.y - 5, player2.width + 10, player2.height + 10);
+ctx.restore();
+} else if (timeStopper === player2) {
+// Draw frozen effect on player 1
+ctx.save();
+ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
+ctx.lineWidth = 2;
+ctx.strokeRect(player1.position.x - 5, player1.position.y - 5, player1.width + 10, player1.height + 10);
+ctx.restore();
+}
+}
+
+drawUI();
+
+// Update characters based on time stop
+player1.update();
+player2.update();
+
+// Update facing direction
+if (player1.position.x < player2.position.x) { 
+player1.facing = 'right'; 
+player2.facing = 'left'; 
+} else { 
+player1.facing = 'left'; 
+player2.facing = 'right'; 
+}
+
+// Movement - Only allow movement for the time stopper during time stop
+if (!isTimeStopped || timeStopper === player1) {
+player1.velocity.x = 0; 
+if (keys.d.pressed && player1.lastKey === 'd') player1.velocity.x = 5; 
+else if (keys.a.pressed && player1.lastKey === 'a') player1.velocity.x = -5;
+}
+
+if (!isTimeStopped || timeStopper === player2) {
+player2.velocity.x = 0; 
+if (keys.ArrowRight.pressed && player2.lastKey === 'ArrowRight') player2.velocity.x = 5; 
+else if (keys.ArrowLeft.pressed && player2.lastKey === 'ArrowLeft') player2.velocity.x = -5;
+}
+
+// Handle Projectiles - ALL projectiles freeze during time stop
+projectiles.forEach((projectile, index) => {
+// Apply gravity to basketball only if time is not stopped
+if (projectile.type === 'basketball' && !isTimeStopped) {
+projectile.velocity.y += GRAVITY * 0.5;
+}
+    
+projectile.update();
+const opponent = projectile.owner === player1 ? player2 : player1;
+if (rectangularCollision({ rectangle1: projectile, rectangle2: opponent }) && !opponent.isBlocking) {
+opponent.health -= 10;
+soundManager.play('hit');
+projectiles.splice(index, 1);
+}
+if (projectile.position.x > canvas.width || projectile.position.x < -projectile.width || 
+projectile.position.y > canvas.height) {
+projectiles.splice(index, 1);
+}
+});
+
+// Handle Melee Attacks
+if (player1.currentAttackHitbox && rectangularCollision({ rectangle1: player1.currentAttackHitbox, rectangle2: player2 }) && !player2.isBlocking) { 
+player2.health -= 10;
+soundManager.play('hit');
+} 
+if (player2.currentAttackHitbox && rectangularCollision({ rectangle1: player2.currentAttackHitbox, rectangle2: player1 }) && !player1.isBlocking) { 
+player1.health -= 10;
+soundManager.play('hit');
+} 
+
+player1.currentAttackHitbox = null;
+player2.currentAttackHitbox = null;
+
+if (player1.health <= 0 || player2.health <= 0) { 
+determineWinner(); 
+}
+}
+
+// --- RESTART ---
+restartButton.addEventListener('click', () => {
+soundManager.play('menuConfirm');
+gameState = 'SELECT'; 
+gameOverDisplay.classList.add('hidden'); 
+characterSelectDisplay.classList.remove('hidden');
+player1Selection = null; 
+player2Selection = null; 
+player1Confirmed = false; 
+player2Confirmed = false;
+p1SelectedDisplay.classList.remove('confirmed'); 
+p2SelectedDisplay.classList.remove('confirmed');
+p1ConfirmButton.disabled = true; 
+p2ConfirmButton.disabled = true; 
+startBattleButton.disabled = true;
+updateSelectDisplay();
+});
+
+// --- INIT ---
+initializeCharacterSelect();
+</script>
+</body>
+</html>
