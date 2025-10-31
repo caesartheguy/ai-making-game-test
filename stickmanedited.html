@@ -95,6 +95,38 @@
             z-index: 10000;
             display: none;
         }
+        
+        .status-indicator {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(20, 20, 40, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 9998;
+            display: none;
+        }
+        
+        .status-item {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background-color: #333;
+        }
+        
+        .status-dot.active {
+            background-color: #4CAF50;
+            box-shadow: 0 0 5px #4CAF50;
+        }
     </style>
 </head>
 
@@ -107,22 +139,38 @@
     <div id="dev-menu">
         <h3>Developer Menu</h3>
         <div class="dev-toggle">
-            <span>Aimbot</span>
+            <span>⚡ OP Aimbot</span>
             <div class="toggle-switch" id="aimbot-toggle">
                 <div class="toggle-slider"></div>
             </div>
         </div>
         <div class="dev-toggle">
-            <span>2x Speed</span>
+            <span>⚡ 2x Speed</span>
             <div class="toggle-switch" id="speed-toggle">
                 <div class="toggle-slider"></div>
             </div>
         </div>
         <div class="dev-toggle">
-            <span>Flight</span>
+            <span>⚡ Flight</span>
             <div class="toggle-switch" id="flight-toggle">
                 <div class="toggle-slider"></div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Status Indicator -->
+    <div id="status-indicator">
+        <div class="status-item">
+            <div class="status-dot" id="aimbot-status"></div>
+            <span>Aimbot</span>
+        </div>
+        <div class="status-item">
+            <div class="status-dot" id="speed-status"></div>
+            <span>2x Speed</span>
+        </div>
+        <div class="status-item">
+            <div class="status-dot" id="flight-status"></div>
+            <span>Flight</span>
         </div>
     </div>
     
@@ -193,10 +241,14 @@
         // Developer Menu Functionality
         document.addEventListener('DOMContentLoaded', function() {
             const devMenu = document.getElementById('dev-menu');
+            const statusIndicator = document.getElementById('status-indicator');
             const notification = document.getElementById('notification');
             const aimbotToggle = document.getElementById('aimbot-toggle');
             const speedToggle = document.getElementById('speed-toggle');
             const flightToggle = document.getElementById('flight-toggle');
+            const aimbotStatus = document.getElementById('aimbot-status');
+            const speedStatus = document.getElementById('speed-status');
+            const flightStatus = document.getElementById('flight-status');
             
             // Track which keys are pressed
             const keysPressed = {};
@@ -205,7 +257,11 @@
             const gameState = {
                 aimbot: false,
                 speedMultiplier: 1,
-                flight: false
+                flight: false,
+                originalRAF: null,
+                originalSetTimeout: null,
+                originalSetInterval: null,
+                gameInstances: []
             };
             
             // Show notification
@@ -225,9 +281,11 @@
                 if (keysPressed['`'] && keysPressed['=']) {
                     if (devMenu.style.display === 'none' || devMenu.style.display === '') {
                         devMenu.style.display = 'block';
+                        statusIndicator.style.display = 'block';
                         showNotification('Developer Menu Opened');
                     } else {
                         devMenu.style.display = 'none';
+                        statusIndicator.style.display = 'none';
                         showNotification('Developer Menu Closed');
                     }
                 }
@@ -241,9 +299,10 @@
             aimbotToggle.addEventListener('click', function() {
                 this.classList.toggle('active');
                 gameState.aimbot = !gameState.aimbot;
+                aimbotStatus.classList.toggle('active');
                 
                 if (gameState.aimbot) {
-                    showNotification('Aimbot Activated');
+                    showNotification('⚡ OP AIMBOT ACTIVATED');
                     enableAimbot();
                 } else {
                     showNotification('Aimbot Deactivated');
@@ -253,10 +312,11 @@
             
             speedToggle.addEventListener('click', function() {
                 this.classList.toggle('active');
+                speedStatus.classList.toggle('active');
                 
                 if (this.classList.contains('active')) {
                     gameState.speedMultiplier = 2;
-                    showNotification('2x Speed Activated');
+                    showNotification('⚡ 2X SPEED ACTIVATED');
                     enableSpeedHack();
                 } else {
                     gameState.speedMultiplier = 1;
@@ -267,10 +327,11 @@
             
             flightToggle.addEventListener('click', function() {
                 this.classList.toggle('active');
+                flightStatus.classList.toggle('active');
                 gameState.flight = !gameState.flight;
                 
                 if (gameState.flight) {
-                    showNotification('Flight Mode Activated');
+                    showNotification('⚡ FLIGHT MODE ACTIVATED');
                     enableFlight();
                 } else {
                     showNotification('Flight Mode Deactivated');
@@ -278,60 +339,341 @@
                 }
             });
             
-            // Cheat functions
+            // OP AIMBOT IMPLEMENTATION
             function enableAimbot() {
-                // This would hook into the game's shooting mechanics
-                // Since we don't have direct access to the game's code, we'll simulate it
-                if (window.game && window.game.player) {
-                    // In a real implementation, this would modify the game's shooting logic
-                    console.log('Aimbot enabled');
+                // Override mouse/touch events for perfect aiming
+                document.addEventListener('mousemove', aimbotHandler, true);
+                document.addEventListener('touchmove', aimbotHandler, true);
+                document.addEventListener('mousedown', autoShoot, true);
+                document.addEventListener('touchstart', autoShoot, true);
+                
+                // Hook into canvas for pixel-perfect aiming
+                const canvases = document.querySelectorAll('canvas');
+                canvases.forEach(canvas => {
+                    if (canvas.getContext) {
+                        const ctx = canvas.getContext('2d');
+                        const originalDrawImage = ctx.drawImage;
+                        
+                        ctx.drawImage = function(...args) {
+                            // Detect when hoop/basket is being drawn
+                            if (gameState.aimbot) {
+                                // Calculate perfect trajectory
+                                calculatePerfectShot();
+                            }
+                            return originalDrawImage.apply(this, args);
+                        };
+                    }
+                });
+                
+                // Auto-shoot at perfect intervals
+                gameState.aimbotInterval = setInterval(() => {
+                    if (gameState.aimbot) {
+                        simulatePerfectShot();
+                    }
+                }, 100);
+            }
+            
+            function aimbotHandler(e) {
+                if (!gameState.aimbot) return;
+                
+                // Calculate perfect aim position
+                const canvas = document.querySelector('canvas');
+                if (!canvas) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const hoopX = rect.width * 0.8; // Approximate hoop position
+                const hoopY = rect.height * 0.3;
+                
+                // Override mouse position to aim at hoop
+                if (e.clientX !== undefined) {
+                    Object.defineProperty(e, 'clientX', {
+                        value: hoopX,
+                        writable: false
+                    });
+                    Object.defineProperty(e, 'clientY', {
+                        value: hoopY,
+                        writable: false
+                    });
                 }
+            }
+            
+            function calculatePerfectShot() {
+                // Calculate perfect trajectory considering physics
+                const canvas = document.querySelector('canvas');
+                if (!canvas) return;
+                
+                // Simulate perfect ball trajectory
+                const playerX = canvas.width * 0.2;
+                const playerY = canvas.height * 0.7;
+                const hoopX = canvas.width * 0.8;
+                const hoopY = canvas.height * 0.3;
+                
+                // Calculate perfect angle and power
+                const dx = hoopX - playerX;
+                const dy = hoopY - playerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // Store perfect shot data
+                window.perfectShot = {
+                    angle: Math.atan2(dy, dx),
+                    power: Math.min(distance * 0.15, 100),
+                    trajectory: calculateTrajectory(playerX, playerY, hoopX, hoopY)
+                };
+            }
+            
+            function calculateTrajectory(x1, y1, x2, y2) {
+                const points = [];
+                const steps = 20;
+                const gravity = 0.5;
+                
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const x = x1 + (x2 - x1) * t;
+                    const y = y1 + (y2 - y1) * t - gravity * t * (1 - t) * 4;
+                    points.push({x, y});
+                }
+                
+                return points;
+            }
+            
+            function simulatePerfectShot() {
+                // Simulate mouse events for perfect shot
+                const canvas = document.querySelector('canvas');
+                if (!canvas || !window.perfectShot) return;
+                
+                const shot = window.perfectShot;
+                const rect = canvas.getBoundingClientRect();
+                
+                // Create and dispatch mouse events
+                const mousedown = new MouseEvent('mousedown', {
+                    clientX: rect.left + shot.trajectory[0].x,
+                    clientY: rect.top + shot.trajectory[0].y,
+                    bubbles: true
+                });
+                
+                const mouseup = new MouseEvent('mouseup', {
+                    clientX: rect.left + shot.trajectory[shot.trajectory.length - 1].x,
+                    clientY: rect.top + shot.trajectory[shot.trajectory.length - 1].y,
+                    bubbles: true
+                });
+                
+                canvas.dispatchEvent(mousedown);
+                setTimeout(() => canvas.dispatchEvent(mouseup), 50);
+            }
+            
+            function autoShoot(e) {
+                if (!gameState.aimbot) return;
+                
+                // Prevent default and trigger perfect shot
+                e.preventDefault();
+                e.stopPropagation();
+                
+                calculatePerfectShot();
+                setTimeout(() => simulatePerfectShot(), 10);
             }
             
             function disableAimbot() {
-                if (window.game && window.game.player) {
-                    console.log('Aimbot disabled');
+                document.removeEventListener('mousemove', aimbotHandler, true);
+                document.removeEventListener('touchmove', aimbotHandler, true);
+                document.removeEventListener('mousedown', autoShoot, true);
+                document.removeEventListener('touchstart', autoShoot, true);
+                
+                if (gameState.aimbotInterval) {
+                    clearInterval(gameState.aimbotInterval);
                 }
             }
             
+            // 2X SPEED IMPLEMENTATION
             function enableSpeedHack() {
-                // This would modify the game's time scale or player movement speed
-                if (window.game && window.game.time) {
-                    // In a real implementation, this would modify the game's time scale
-                    console.log('Speed hack enabled');
+                // Override requestAnimationFrame for faster game loop
+                if (!gameState.originalRAF) {
+                    gameState.originalRAF = window.requestAnimationFrame;
                 }
+                
+                window.requestAnimationFrame = function(callback) {
+                    return gameState.originalRAF(function(timestamp) {
+                        // Speed up the timestamp
+                        callback(timestamp * gameState.speedMultiplier);
+                    });
+                };
+                
+                // Override setTimeout for faster timers
+                if (!gameState.originalSetTimeout) {
+                    gameState.originalSetTimeout = window.setTimeout;
+                }
+                
+                window.setTimeout = function(callback, delay) {
+                    return gameState.originalSetTimeout(callback, delay / gameState.speedMultiplier);
+                };
+                
+                // Override setInterval for faster intervals
+                if (!gameState.originalSetInterval) {
+                    gameState.originalSetInterval = window.setInterval;
+                }
+                
+                window.setInterval = function(callback, interval) {
+                    return gameState.originalSetInterval(callback, interval / gameState.speedMultiplier);
+                };
+                
+                // Speed up Phaser game if available
+                if (window.Phaser && window.game) {
+                    if (window.game.time && window.game.time.desiredFps) {
+                        window.game.time.desiredFps *= gameState.speedMultiplier;
+                    }
+                    if (window.game.physics && window.game.physics.arcade) {
+                        window.game.physics.arcade.timeScale = gameState.speedMultiplier;
+                    }
+                }
+                
+                // Speed up CSS animations
+                const style = document.createElement('style');
+                style.id = 'speed-hack-style';
+                style.textContent = `
+                    * {
+                        animation-duration: ${1/gameState.speedMultiplier}s !important;
+                        transition-duration: ${1/gameState.speedMultiplier}s !important;
+                    }
+                `;
+                document.head.appendChild(style);
             }
             
             function disableSpeedHack() {
-                if (window.game && window.game.time) {
-                    console.log('Speed hack disabled');
+                // Restore original functions
+                if (gameState.originalRAF) {
+                    window.requestAnimationFrame = gameState.originalRAF;
+                }
+                if (gameState.originalSetTimeout) {
+                    window.setTimeout = gameState.originalSetTimeout;
+                }
+                if (gameState.originalSetInterval) {
+                    window.setInterval = gameState.originalSetInterval;
+                }
+                
+                // Restore Phaser game speed
+                if (window.Phaser && window.game) {
+                    if (window.game.time && window.game.time.desiredFps) {
+                        window.game.time.desiredFps /= 2;
+                    }
+                    if (window.game.physics && window.game.physics.arcade) {
+                        window.game.physics.arcade.timeScale = 1;
+                    }
+                }
+                
+                // Remove speed hack style
+                const speedHackStyle = document.getElementById('speed-hack-style');
+                if (speedHackStyle) {
+                    speedHackStyle.remove();
                 }
             }
             
+            // FLIGHT IMPLEMENTATION
             function enableFlight() {
-                // This would modify the player's physics to allow flight
+                // Override physics for flight
+                const canvases = document.querySelectorAll('canvas');
+                canvases.forEach(canvas => {
+                    canvas.addEventListener('click', flightHandler, true);
+                });
+                
+                // Override gravity if using physics engine
+                if (window.Phaser && window.game && window.game.physics) {
+                    if (window.game.physics.arcade) {
+                        window.game.physics.arcade.gravity.y = 0;
+                    }
+                    if (window.game.physics.p2) {
+                        window.game.physics.p2.gravity.y = 0;
+                    }
+                }
+                
+                // Enable flight controls
+                document.addEventListener('keydown', flightControls);
+            }
+            
+            function flightHandler(e) {
+                if (!gameState.flight) return;
+                
+                // Allow player to fly by clicking
+                const canvas = e.target;
+                const rect = canvas.getBoundingClientRect();
+                
+                // Teleport player to click position
                 if (window.game && window.game.player) {
-                    // In a real implementation, this would modify the player's physics
-                    console.log('Flight enabled');
+                    window.game.player.x = e.clientX - rect.left;
+                    window.game.player.y = e.clientY - rect.top;
+                    window.game.player.body.velocity.y = 0;
+                }
+            }
+            
+            function flightControls(e) {
+                if (!gameState.flight) return;
+                
+                // WASD or arrow keys for flight
+                const speed = 15;
+                if (window.game && window.game.player) {
+                    switch(e.key) {
+                        case 'w':
+                        case 'W':
+                        case 'ArrowUp':
+                            window.game.player.body.velocity.y = -speed;
+                            break;
+                        case 's':
+                        case 'S':
+                        case 'ArrowDown':
+                            window.game.player.body.velocity.y = speed;
+                            break;
+                        case 'a':
+                        case 'A':
+                        case 'ArrowLeft':
+                            window.game.player.body.velocity.x = -speed;
+                            break;
+                        case 'd':
+                        case 'D':
+                        case 'ArrowRight':
+                            window.game.player.body.velocity.x = speed;
+                            break;
+                    }
                 }
             }
             
             function disableFlight() {
-                if (window.game && window.game.player) {
-                    console.log('Flight disabled');
+                const canvases = document.querySelectorAll('canvas');
+                canvases.forEach(canvas => {
+                    canvas.removeEventListener('click', flightHandler, true);
+                });
+                
+                // Restore gravity
+                if (window.Phaser && window.game && window.game.physics) {
+                    if (window.game.physics.arcade) {
+                        window.game.physics.arcade.gravity.y = 500;
+                    }
+                    if (window.game.physics.p2) {
+                        window.game.physics.p2.gravity.y = 10;
+                    }
                 }
+                
+                document.removeEventListener('keydown', flightControls);
             }
             
             // Wait for the game to load
             window.addEventListener('load', function() {
-                // Try to access the game object after it loads
                 setTimeout(function() {
+                    console.log('Developer menu loaded. Press ` and = to open.');
+                    
+                    // Auto-detect game instances
                     if (window.game) {
-                        console.log('Game detected, developer menu ready');
-                    } else {
-                        console.log('Game not detected, developer menu may not work fully');
+                        gameState.gameInstances.push(window.game);
+                        console.log('Game detected:', window.game);
                     }
-                }, 3000);
+                    
+                    // Monitor for game creation
+                    const originalCreate = window.Phaser && window.Phaser.Game;
+                    if (originalCreate) {
+                        window.Phaser.Game = function(...args) {
+                            const game = new originalCreate(...args);
+                            gameState.gameInstances.push(game);
+                            return game;
+                        };
+                    }
+                }, 2000);
             });
         });
     </script>
