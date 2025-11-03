@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basketball Stars Ultimate</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Press+Start+2P&family=VT323&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            font-family: 'Bebas Neue', cursive;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 1000px;
+            height: 600px;
+            border: 5px solid #fff;
+            box-shadow: 0 0 25px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .menu-screen, .select-screen, .customize-screen, .pause-screen, .dev-screen, .victory-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            pointer-events: all;
+        }
+        .menu-screen h1 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 4em;
+            color: #FFD700;
+            text-shadow: 3px 3px #000;
+            margin-bottom: 50px;
+        }
+        .menu-button {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2em;
+            padding: 15px 40px;
+            margin: 10px;
+            background: #FFD700;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .menu-button:hover { transform: scale(1.1); box-shadow: 0 0 15px #FFD700; }
+        .hidden { display: none !important; }
+
+        /* Victory Screen */
+        .victory-screen {
+            background: linear-gradient(135deg, #1a1a1a, #333);
+            z-index: 100;
+        }
+        .victory-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 3em;
+            color: #FFD700;
+            text-shadow: 3px 3px #000;
+            margin-bottom: 30px;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+        .winner-name {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2.5em;
+            color: #FFD700;
+            margin-bottom: 20px;
+        }
+        .victory-stats {
+            font-family: 'VT323', monospace;
+            font-size: 1.5em;
+            margin-bottom: 30px;
+        }
+
+        /* REFINED CHARACTER SELECT SCREEN */
+        .select-screen {
+            width: 850px;
+            height: 500px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 20, 0.98);
+            border: 3px solid #FFD700;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        .select-header {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 2.5em;
+            color: #FFD700;
+            text-shadow: 2px 2px #000;
+            margin-bottom: 20px;
+        }
+        .select-content-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 0 20px;
+        }
+        .player-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 45%;
+        }
+        .player-title {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 1.8em;
+            color: #fff;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #444;
+            width: 100%;
+        }
+        .player-title.p1 { color: #3498db; border-color: #3498db; }
+        .player-title.p2 { color: #e74c3c; border-color: #e74c3c; }
+        .player-card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            width: 100%;
+        }
+        .player-card {
+            background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+            border: 2px solid #555;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            border-radius: 8px;
+        }
+        .player-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+            border-color: #FFD700;
+        }
+        .player-card.selected {
+            border-color: #00FF00;
+            box-shadow: 0 0 10px #00FF00;
+            background: linear-gradient(145deg, #3a5a3a, #1a2a1a);
+        }
+        .player-card .avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            background-size: cover;
+            background-color: #ccc;
+        }
+        .player-card .info {
+            text-align: left;
+        }
+        .player-card h3 { font-size: 1.4em; margin: 0 0 5px 0; }
+        .player-card p { font-size: 0.9em; margin: 0; color: #ccc; }
+        .vs-text {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 2.5em;
+            color: #fff;
+            text-shadow: 2px 2px #000;
+            margin: 0 20px;
+        }
+        
+        .customize-container { display: flex; gap: 100px; }
+        .customization-panel { background: #444; padding: 20px; border-radius: 10px; }
+        .customization-panel h3 { font-size: 2em; border-bottom: 2px solid #FFD700; padding-bottom: 10px; }
+        .color-options, .number-input { margin-top: 15px; }
+        .color-option {
+            width: 40px; height: 40px; border: 2px solid #fff; display: inline-block; margin: 5px;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        .color-option:hover { transform: scale(1.2); }
+        .color-option.selected { border-color: '#FFD700'; box-shadow: 0 0 10px #FFD700; }
+        .number-input input { font-family: 'Bebas Neue'; font-size: 2em; width: 80px; text-align: center; }
+
+        .game-ui { display: none; pointer-events: all; }
+        .score-display { position: absolute; top: 20px; font-size: 3em; text-shadow: 2px 2px #000; }
+        .score-display.p1 { left: 20px; }
+        .score-display.p2 { right: 20px; }
+        .streak-display { 
+            position: absolute; 
+            top: 70px; 
+            font-size: 1.5em; 
+            text-shadow: 2px 2px #000;
+            display: flex;
+            align-items: center;
+        }
+        .streak-display.p1 { left: 20px; }
+        .streak-display.p2 { right: 20px; }
+        .streak-fire {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-left: 5px;
+            background: radial-gradient(circle, #FFA500, #FF4500);
+            border-radius: 50%;
+            animation: flicker 0.5s infinite alternate;
+        }
+        @keyframes flicker {
+            0% { opacity: 0.7; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1.1); }
+        }
+        .player-info { position: absolute; bottom: 20px; width: 200px; text-align: center; }
+        .player-info.p1 { left: 20px; }
+        .player-info.p2 { right: 20px; }
+        .player-name { font-size: 1.5em; }
+        .stamina-bar, .power-bar { width: 100%; height: 20px; background: #555; border: 2px solid #fff; margin-top: 5px; }
+        .stamina-fill { background: #0f0; height: 100%; transition: width 0.2s; }
+        .power-fill { background: #f0f; height: 100%; transition: width 0.2s; }
+
+        .pause-screen h2, .dev-screen h2 { font-size: 3em; margin-bottom: 30px; }
+        .controls-container { display: flex; gap: 50px; text-align: left; }
+        .controls-container h3 { font-size: 1.5em; color: #FFD700; border-bottom: 1px solid #FFD700; padding-bottom: 5px; margin-bottom: 10px;}
+        .controls-container p { font-size: 1.1em; margin: 5px 0; }
+        
+        #devButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.5);
+            color: #FFD700;
+            border: 1px solid #FFD700;
+            font-family: 'VT323', monospace;
+            font-size: 1em;
+            cursor: pointer;
+            z-index: 1000;
+            border-radius: 5px;
+            pointer-events: all;
+        }
+        #devButton:hover { background: rgba(255,215,0,0.2); }
+        .dev-screen {
+            font-family: 'VT323', monospace;
+            background: rgba(0, 20, 0, 0.95);
+            color: #00FF00;
+            text-align: left;
+            padding: 20px;
+            align-items: flex-start;
+        }
+        .dev-screen h2 { color: '#00FF00'; text-shadow: 0 0 5px #00FF00; }
+        .dev-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            font-size: 1.5em;
+        }
+        .dev-toggle {
+            background: #111;
+            border: 1px solid #00FF00;
+            color: #00FF00;
+            padding: 10px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .dev-toggle.active {
+            background: #00FF00;
+            color: '#111';
+        }
+        
+        /* Time Stop Effect */
+        .time-stop-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        .secret-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'VT323', monospace;
+            font-size: 1em;
+            color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        <div class="ui-layer">
+            <button id="devButton">DEV</button>
+
+            <div id="menuScreen" class="menu-screen">
+                <h1>Basketball Stars</h1>
+                <button class="menu-button" onclick="game.showScreen('selectScreen')">Start Game</button>
+            </div>
+            <div id="selectScreen" class="select-screen hidden">
+                <div class="select-header">SELECT YOUR PLAYERS</div>
+                <div class="select-content-container">
+                    <div class="player-column">
+                        <div class="player-title p1">PLAYER 1</div>
+                        <div class="player-card-list" id="player1Select"></div>
+                    </div>
+                    <div class="vs-text">VS</div>
+                    <div class="player-column">
+                        <div class="player-title p2">PLAYER 2</div>
+                        <div class="player-card-list" id="player2Select"></div>
+                    </div>
+                </div>
+                <button class="menu-button" onclick="game.showCustomization()">Customize & Start</button>
+                <div class="secret-hint">Press 1 for a secret character...</div>
+            </div>
+            <div id="customizeScreen" class="customize-screen hidden">
+                <h2>Customize Your Players</h2>
+                <div class="customize-container">
+                    <div class="customization-panel">
+                        <h3>Player 1</h3>
+                        <div class="color-options" id="p1ColorOptions"></div>
+                        <div class="number-input">
+                            <label>Number: </label>
+                            <input type="number" id="p1Number" min="0" max="99" value="1">
+                        </div>
+                    </div>
+                    <div class="customization-panel">
+                        <h3>Player 2</h3>
+                        <div class="color-options" id="p2ColorOptions"></div>
+                        <div class="number-input">
+                            <label>Number: </label>
+                            <input type="number" id="p2Number" min="0" max="99" value="2">
+                        </div>
+                    </div>
+                </div>
+                <button class="menu-button" onclick="game.startMatch()">Start Match</button>
+            </div>
+            <div id="pauseScreen" class="pause-screen hidden">
+                <h2>PAUSED</h2>
+                <div class="controls-container">
+                    <div>
+                        <h3>Player 1 (Blue)</h3>
+                        <p>Move: A / D</p>
+                        <p>Sprint: Hold Shift</p>
+                        <p>Jump: W</p>
+                        <p>Shoot: Space</p>
+                        <p>Steal: S</p>
+                        <p>Energy Beam: R</p>
+                        <p>Time Stop: T (Dio Only)</p>
+                    </div>
+                    <div>
+                        <h3>Player 2 (Red)</h3>
+                        <p>Move: Arrow Left / Right</p>
+                        <p>Sprint: Hold Right Shift</p>
+                        <p>Jump: Arrow Up</p>
+                        <p>Shoot: Enter</p>
+                        <p>Steal: Down Arrow</p>
+                    </div>
+                </div>
+                <button class="menu-button" onclick="game.resume()">Resume</button>
+            </div>
+            <div id="devScreen" class="dev-screen hidden">
+                <h2>&gt; DEVELOPER PANEL</h2>
+                <div class="dev-controls">
+                    <button id="aimbotToggle" class="dev-toggle" onclick="game.toggleAimbot()">[OFF] Aimbot (P1)</button>
+                    <button id="stealToggle" class="dev-toggle" onclick="game.toggleSteal()">[OFF] Global Steal (P1)</button>
+                    <button id="energyBlastToggle" class="dev-toggle" onclick="game.toggleEnergyBlast()">[OFF] Energy Beam (P1)</button>
+                </div>
+                <button class="menu-button" style="margin-top: 20px;" onclick="game.resume()">Close Panel</button>
+            </div>
+            <div id="victoryScreen" class="victory-screen hidden">
+                <div class="victory-title">VICTORY!</div>
+                <div class="winner-name" id="winnerName">PLAYER 1</div>
+                <div class="victory-stats" id="victoryStats">Final Score: 20 - 0</div>
+                <button class="menu-button" onclick="game.showScreen('menuScreen')">Main Menu</button>
+            </div>
+            <div id="gameUI" class="game-ui">
+                <div class="score-display p1" id="score1">0</div>
+                <div class="score-display p2" id="score2">0</div>
+                <div class="streak-display p1" id="streak1">
+                    Streak: 0
+                </div>
+                <div class="streak-display p2" id="streak2">
+                    Streak: 0
+                </div>
+                <div class="player-info p1">
+                    <div class="player-name" id="p1Name">P1</div>
+                    <div class="stamina-bar"><div class="stamina-fill" id="p1Stamina" style="width: 100%;"></div></div>
+                    <div class="power-bar"><div class="power-fill" id="p1Power" style="width: 100%;"></div></div>
+                </div>
+                <div class="player-info p2">
+                    <div class="player-name" id="p2Name">P2</div>
+                    <div class="stamina-bar"><div class="stamina-fill" id="p2Stamina" style="width: 100%;"></div></div>
+                    <div class="power-bar"><div class="power-fill" id="p2Power" style="width: 100%;"></div></div>
+                </div>
+            </div>
+            <div id="timeStopEffect" class="time-stop-effect"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Dynamic Background Elements ---
+        const background = {
+            clouds: [
+                { x: 100, y: 50, speed: 0.2, scale: 1 },
+                { x: 400, y: 80, speed: 0.15, scale: 0.8 },
+                { x: 700, y: 40, speed: 0.25, scale: 1.2 },
+                { x: 900, y: 90, speed: 0.1, scale: 0.9 }
+            ],
+            hills: [
+                { x: 0, y: 450, width: 400, height: 150, speed: 0.05, color: '#2a5a2a' },
+                { x: 350, y: 480, width: 500, height: 120, speed: 0.08, color: '#1e4a1e' },
+                { x: 750, y: 460, width: 350, height: 140, speed: 0.06, color: '#235023' }
+            ],
+            scoreboard: {
+                x: canvas.width / 2 - 120,
+                y: 180,
+                width: 240,
+                height: 90,
+                draw(game) {
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                    ctx.strokeStyle = '#888';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(this.x, this.y, this.width, this.height);
+                    ctx.fillStyle = '#FF4500';
+                    ctx.font = 'bold 48px VT323';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(game.score.p1, this.x + this.width * 0.25, this.y + this.height * 0.65);
+                    ctx.fillText(game.score.p2, this.x + this.width * 0.75, this.y + this.height * 0.65);
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(this.x + this.width * 0.45, this.y + 20, this.width * 0.1, this.height - 40);
+                    ctx.font = 'bold 20px Bebas Neue';
+                    ctx.fillText('P1', this.x + this.width * 0.25, this.y + 30);
+                    ctx.fillText('P2', this.x + this.width * 0.75, this.y + 30);
+                }
+            },
+            isDestroyed: false,
+            draw(game) {
+                if (this.isDestroyed) {
+                    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    gradient.addColorStop(0, '#333');
+                    gradient.addColorStop(0.6, '#222');
+                    gradient.addColorStop(1, '#111');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    for (let i = 0; i < 20; i++) {
+                        const x = Math.random() * canvas.width;
+                        const y = canvas.height - Math.random() * 200;
+                        const size = Math.random() * 30 + 10;
+                        const flicker = Math.random() * 0.3 + 0.7;
+                        
+                        ctx.save();
+                        ctx.globalAlpha = flicker;
+                        
+                        const fireGradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                        fireGradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
+                        fireGradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.5)');
+                        fireGradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                        
+                        ctx.fillStyle = fireGradient;
+                        ctx.beginPath();
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.restore();
+                    }
+                    
+                    this.hills.forEach(hill => {
+                        ctx.fillStyle = '#222';
+                        ctx.beginPath();
+                        ctx.moveTo(hill.x, canvas.height);
+                        ctx.lineTo(hill.x + hill.width / 4, hill.y);
+                        ctx.lineTo(hill.x + hill.width / 2, hill.y - 20);
+                        ctx.lineTo(hill.x + hill.width * 0.75, hill.y);
+                        ctx.lineTo(hill.x + hill.width, canvas.height);
+                        ctx.closePath();
+                        ctx.fill();
+                        hill.x -= hill.speed;
+                        if (hill.x + hill.width < 0) hill.x = canvas.width;
+                    });
+                    
+                    ctx.fillStyle = '#222';
+                    ctx.fillRect(this.scoreboard.x - 5, this.scoreboard.y - 5, this.scoreboard.width + 10, this.scoreboard.height + 10);
+                    ctx.strokeStyle = '#444';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(this.scoreboard.x - 5, this.scoreboard.y - 5, this.scoreboard.width + 10, this.scoreboard.height + 10);
+                    
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(this.scoreboard.x + 10, this.scoreboard.y + 10, this.scoreboard.width - 20, this.scoreboard.height - 20);
+                    
+                    ctx.fillStyle = '#666';
+                    ctx.font = 'bold 48px VT323';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(game.score.p1, this.scoreboard.x + this.scoreboard.width * 0.25, this.scoreboard.y + this.scoreboard.height * 0.65);
+                    ctx.fillText(game.score.p2, this.scoreboard.x + this.scoreboard.width * 0.75, this.scoreboard.y + this.scoreboard.height * 0.65);
+                } else {
+                    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    gradient.addColorStop(0, '#87CEEB');
+                    gradient.addColorStop(0.6, '#98D8E8');
+                    gradient.addColorStop(1, '#F0E68C');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    this.hills.forEach(hill => {
+                        ctx.fillStyle = hill.color;
+                        ctx.beginPath();
+                        ctx.moveTo(hill.x, canvas.height);
+                        ctx.lineTo(hill.x + hill.width / 4, hill.y);
+                        ctx.lineTo(hill.x + hill.width / 2, hill.y - 20);
+                        ctx.lineTo(hill.x + hill.width * 0.75, hill.y);
+                        ctx.lineTo(hill.x + hill.width, canvas.height);
+                        ctx.closePath();
+                        ctx.fill();
+                        hill.x -= hill.speed;
+                        if (hill.x + hill.width < 0) hill.x = canvas.width;
+                    });
+                    this.scoreboard.draw(game);
+                }
+                
+                this.clouds.forEach(cloud => {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.save();
+                    ctx.translate(cloud.x, cloud.y);
+                    ctx.scale(cloud.scale, cloud.scale);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 25, 0, Math.PI * 2);
+                    ctx.arc(25, 0, 35, 0, Math.PI * 2);
+                    ctx.arc(50, 0, 25, 0, Math.PI * 2);
+                    ctx.arc(15, -15, 20, 0, Math.PI * 2);
+                    ctx.arc(35, -10, 25, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                    cloud.x -= cloud.speed;
+                    if (cloud.x < -100 * cloud.scale) cloud.x = canvas.width + 100 * cloud.scale;
+                });
+            }
+        };
+
+        const JERSEY_COLORS = ['#FF0000', '#0000FF', '#00FF00', '#FFA500', '#800080', '#FFD700', '#000000', '#FFFFFF'];
+        const PLAYER_ROSTER = [
+            { name: "Flash", nickname: "The Blur", stats: { speed: 7, threePoint: 6, dunk: 7, defense: 5 }, appearance: { skin: '#8D5524', hair: 'short', hairColor: '#000' }, power: { name: 'Mega Dunk', type: 'dunk', cooldown: 12000 } },
+            { name: "Sharpshooter", nickname: "Deadeye", stats: { speed: 4.5, threePoint: 10, dunk: 4, defense: 6 }, appearance: { skin: '#FDBCB4', hair: 'short', hairColor: '#FFD700' }, power: { name: 'Mega Shot', type: 'shot', cooldown: 10000 } },
+            { name: "The Hammer", nickname: "Wrecker", stats: { speed: 5, threePoint: 3, dunk: 10, defense: 8 }, appearance: { skin: '#AE5D29', hair: 'bald', hairColor: '#000' }, power: { name: 'Hoop Shield', type: 'defense', cooldown: 15000 } },
+            { name: "Wall", nickname: "The Fortress", stats: { speed: 4, threePoint: 5, dunk: 6, defense: 10 }, appearance: { skin: '#8D5524', hair: 'short', hairColor: '#000' }, power: { name: 'Hoop Shield', type: 'defense', cooldown: 15000 } },
+        ];
+        
+        const DIO_CHARACTER = {
+            name: "DIO",
+            nickname: "The World",
+            stats: { speed: 8, threePoint: 7, dunk: 9, defense: 6 },
+            appearance: { skin: '#FDBCB4', hair: 'long', hairColor: '#FFD700' },
+            power: { name: 'Time Stop', type: 'special', cooldown: 20000 },
+            isSecret: true
+        };
+
+        class TimeStopEffect {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 10;
+                this.maxRadius = 800;
+                this.expansionSpeed = 6;
+                this.active = true;
+                this.opacity = 0.9;
+                this.colorInvert = true;
+                this.particles = [];
+                
+                for (let i = 0; i < 50; i++) {
+                    this.particles.push({
+                        angle: (Math.PI * 2 / 50) * i,
+                        distance: Math.random() * 50 + 20,
+                        size: Math.random() * 4 + 1,
+                        speed: Math.random() * 0.02 + 0.01,
+                        opacity: Math.random() * 0.5 + 0.5
+                    });
+                }
+            }
+            
+            update() {
+                if (!this.active) return;
+                
+                this.radius += this.expansionSpeed;
+                this.opacity = 0.9 * (1 - (this.radius / this.maxRadius));
+                
+                this.particles.forEach(p => {
+                    p.angle += p.speed;
+                    p.distance += 3;
+                    p.opacity *= 0.98;
+                });
+                
+                if (this.radius >= this.maxRadius) {
+                    this.active = false;
+                }
+            }
+            
+            draw(ctx) {
+                if (!this.active) return;
+                
+                ctx.save();
+                
+                ctx.globalCompositeOperation = 'difference';
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.globalCompositeOperation = 'difference';
+                ctx.fillStyle = `rgba(200, 200, 255, ${this.opacity * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.95, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = `rgba(255, 215, 0, ${this.opacity})`;
+                ctx.lineWidth = 8;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                ctx.strokeStyle = `rgba(138, 43, 226, ${this.opacity * 0.7})`;
+                ctx.lineWidth = 15;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.95, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                ctx.strokeStyle = `rgba(255, 0, 255, ${this.opacity * 0.5})`;
+                ctx.lineWidth = 20;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 1.05, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                this.particles.forEach(p => {
+                    if (p.opacity > 0.1) {
+                        ctx.save();
+                        ctx.globalAlpha = p.opacity;
+                        ctx.fillStyle = '#FFD700';
+                        const px = this.x + Math.cos(p.angle) * p.distance;
+                        const py = this.y + Math.sin(p.angle) * p.distance;
+                        ctx.beginPath();
+                        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                });
+                
+                ctx.restore();
+            }
+        }
+
+        class ArenaExplosion {
+            constructor() {
+                this.active = true;
+                this.shockwave = {
+                    radius: 0,
+                    maxRadius: Math.max(canvas.width, canvas.height),
+                    speed: 15,
+                    alpha: 1
+                };
+                this.particles = [];
+                this.debris = [];
+                this.smokeText = {
+                    text: "5 BOMB!!!",
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    size: 0,
+                    maxSize: 120,
+                    alpha: 0,
+                    rotation: 0,
+                    showText: false,
+                    textTimer: 0
+                };
+                
+                for (let i = 0; i < 100; i++) {
+                    this.particles.push({
+                        x: canvas.width / 2,
+                        y: canvas.height / 2,
+                        vx: (Math.random() - 0.5) * 30,
+                        vy: (Math.random() - 0.5) * 30 - 10,
+                        size: Math.random() * 20 + 5,
+                        color: `hsl(${Math.random() * 60 + 10}, 100%, 50%)`,
+                        life: 1
+                    });
+                }
+                
+                for (let i = 0; i < 50; i++) {
+                    this.debris.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        vx: (Math.random() - 0.5) * 20,
+                        vy: -Math.random() * 20 - 5,
+                        size: Math.random() * 15 + 5,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotationSpeed: (Math.random() - 0.5) * 0.2,
+                        color: `hsl(${Math.random() * 30 + 20}, 50%, 30%)`,
+                        life: 1
+                    });
+                }
+                
+                game.screenShake = 50;
+            }
+            
+            update() {
+                if (!this.active) return;
+                
+                this.shockwave.radius += this.shockwave.speed;
+                this.shockwave.alpha = 1 - (this.shockwave.radius / this.shockwave.maxRadius);
+                
+                this.particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.5;
+                    p.vx *= 0.98;
+                    p.life -= 0.02;
+                });
+                
+                this.debris.forEach(d => {
+                    d.x += d.vx;
+                    d.y += d.vy;
+                    d.vy += 0.3;
+                    d.vx *= 0.95;
+                    d.rotation += d.rotationSpeed;
+                    d.life -= 0.01;
+                });
+                
+                if (this.shockwave.radius > this.shockwave.maxRadius * 0.3 && !this.smokeText.showText) {
+                    this.smokeText.showText = true;
+                }
+                
+                if (this.smokeText.showText) {
+                    this.textTimer++;
+                    
+                    if (this.smokeText.size < this.smokeText.maxSize) {
+                        this.smokeText.size = Math.min(this.smokeText.maxSize, this.smokeText.size + 8);
+                    }
+                    
+                    if (this.smokeText.alpha < 1) {
+                        this.smokeText.alpha = Math.min(1, this.smokeText.alpha + 0.08);
+                    }
+                    
+                    this.smokeText.rotation += 0.02;
+                    
+                    this.smokeText.y -= 0.8;
+                    this.smokeText.x += Math.sin(this.textTimer * 0.1) * 2;
+                }
+                
+                if (this.shockwave.radius >= this.shockwave.maxRadius) {
+                    this.active = false;
+                    background.isDestroyed = true;
+                }
+            }
+            
+            draw(ctx) {
+                if (!this.active) return;
+                
+                ctx.save();
+                ctx.globalAlpha = this.shockwave.alpha * 0.5;
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, this.shockwave.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                ctx.globalAlpha = this.shockwave.alpha * 0.3;
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 10;
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, this.shockwave.radius * 0.9, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                
+                this.particles.forEach(p => {
+                    ctx.save();
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                });
+                
+                this.debris.forEach(d => {
+                    ctx.save();
+                    ctx.globalAlpha = d.life;
+                    ctx.translate(d.x, d.y);
+                    ctx.rotate(d.rotation);
+                    ctx.fillStyle = d.color;
+                    ctx.fillRect(-d.size/2, -d.size/2, d.size, d.size);
+                    ctx.restore();
+                });
+                
+                if (this.smokeText.showText && this.smokeText.size > 0) {
+                    ctx.save();
+                    
+                    for (let layer = 0; layer < 5; layer++) {
+                        ctx.save();
+                        ctx.globalAlpha = this.smokeText.alpha * (0.3 + layer * 0.1);
+                        ctx.translate(this.smokeText.x, this.smokeText.y);
+                        ctx.rotate(this.smokeText.rotation + (layer * 0.1));
+                        
+                        const wobbleX = Math.sin(this.textTimer * 0.15 + layer) * 15;
+                        const wobbleY = Math.cos(this.textTimer * 0.12 + layer) * 10;
+                        const scale = 1 + Math.sin(this.textTimer * 0.08 + layer) * 0.2;
+                        
+                        ctx.translate(wobbleX, wobbleY);
+                        ctx.scale(scale, scale);
+                        
+                        const smokeGradient = ctx.createLinearGradient(-this.smokeText.size, 0, this.smokeText.size, 0);
+                        smokeGradient.addColorStop(0, 'rgba(200, 200, 200, 0.2)');
+                        smokeGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.8)');
+                        smokeGradient.addColorStop(1, 'rgba(200, 200, 200, 0.2)');
+                        
+                        ctx.fillStyle = smokeGradient;
+                        ctx.font = `bold ${this.smokeText.size}px Press Start 2P`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(this.smokeText.text, 0, 0);
+                        
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                        ctx.shadowBlur = 10;
+                        ctx.shadowOffsetX = 5;
+                        ctx.shadowOffsetY = 5;
+                        
+                        ctx.restore();
+                    }
+                    
+                    ctx.restore();
+                    
+                    ctx.save();
+                    ctx.globalAlpha = this.smokeText.alpha;
+                    ctx.translate(this.smokeText.x, this.smokeText.y);
+                    ctx.rotate(this.smokeText.rotation);
+                    
+                    ctx.shadowColor = '#FFFFFF';
+                    ctx.shadowBlur = 20;
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.font = `bold ${this.smokeText.size}px Press Start 2P`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.smokeText.text, 0, 0);
+                    
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 3;
+                    ctx.strokeText(this.smokeText.text, 0, 0);
+                    
+                    ctx.restore();
+                }
+            }
+        }
+
+        class VictoryAnimation {
+            constructor(winner, loser, winnerScore, loserScore) {
+                this.active = true;
+                this.winner = winner;
+                this.loser = loser;
+                this.winnerScore = winnerScore;
+                this.loserScore = loserScore;
+                this.timer = 0;
+                this.podium = {
+                    x: canvas.width / 2,
+                    y: canvas.height - 150,
+                    width: 200,
+                    height: 100
+                };
+                this.confetti = [];
+                
+                for (let i = 0; i < 100; i++) {
+                    this.confetti.push({
+                        x: Math.random() * canvas.width,
+                        y: -10,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: Math.random() * 3 + 2,
+                        size: Math.random() * 10 + 5,
+                        color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                        rotation: Math.random() * Math.PI * 2,
+                        rotationSpeed: (Math.random() - 0.5) * 0.2
+                    });
+                }
+            }
+            
+            update() {
+                if (!this.active) return;
+                
+                this.timer++;
+                
+                this.confetti.forEach(c => {
+                    c.x += c.vx;
+                    c.y += c.vy;
+                    c.vy += 0.1;
+                    c.rotation += c.rotationSpeed;
+                    
+                    if (c.y > canvas.height) {
+                        c.y = -10;
+                        c.x = Math.random() * canvas.width;
+                        c.vy = Math.random() * 3 + 2;
+                    }
+                });
+            }
+            
+            draw(ctx) {
+                if (!this.active) return;
+                
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(
+                    this.podium.x - this.podium.width/2, 
+                    this.podium.y - this.podium.height, 
+                    this.podium.width, 
+                    this.podium.height
+                );
+                
+                ctx.fillStyle = '#A0522D';
+                ctx.fillRect(
+                    this.podium.x - this.podium.width/2 - 10, 
+                    this.podium.y - this.podium.height - 10, 
+                    this.podium.width + 20, 
+                    20
+                );
+                
+                ctx.save();
+                ctx.translate(this.podium.x, this.podium.y - this.podium.height - 50);
+                
+                const danceX = Math.sin(this.timer * 0.1) * 10;
+                const danceY = Math.abs(Math.sin(this.timer * 0.2)) * 10;
+                ctx.translate(danceX, -danceY);
+                
+                this.winner.draw(ctx);
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(0, -60, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#FFA500';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(-5, -75, 10, 15);
+                
+                ctx.restore();
+                
+                ctx.save();
+                ctx.translate(100, canvas.height - 150);
+                
+                this.loser.draw(ctx);
+                
+                ctx.fillStyle = '#4FC3F7';
+                for (let i = 0; i < 3; i++) {
+                    const tearX = (Math.random() - 0.5) * 10;
+                    const tearY = -30 + Math.random() * 20;
+                    
+                    ctx.beginPath();
+                    ctx.arc(tearX, tearY, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+                
+                this.confetti.forEach(c => {
+                    ctx.save();
+                    ctx.translate(c.x, c.y);
+                    ctx.rotate(c.rotation);
+                    ctx.fillStyle = c.color;
+                    ctx.fillRect(-c.size/2, -c.size/2, c.size, c.size);
+                    ctx.restore();
+                });
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.font = 'bold 60px Press Start 2P';
+                ctx.textAlign = 'center';
+                ctx.fillText('VICTORY!', canvas.width / 2, 100);
+                
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 30px Bebas Neue';
+                ctx.fillText(`${this.winner.data.name} WINS!`, canvas.width / 2, 150);
+                
+                ctx.font = 'bold 24px VT323';
+                ctx.fillText(`Final Score: ${this.winnerScore} - ${this.loserScore}`, canvas.width / 2, 190);
+            }
+        }
+
+        class EnergyBeam {
+            constructor(x, y, targetX, targetY) {
+                this.startX = x;
+                this.startY = y;
+                this.endX = targetX;
+                this.endY = targetY;
+                this.width = 80;
+                this.active = true;
+                this.duration = 30;
+                this.timer = 0;
+                this.pulsePhase = 0;
+                this.lightningOffsets = [];
+                this.hasHit = false;
+                this.progress = 0;
+                this.speed = 0.05;
+                
+                for (let i = 0; i < 5; i++) {
+                    this.lightningOffsets.push({
+                        offset: Math.random() * 0.3 + 0.35,
+                        amplitude: Math.random() * 30 + 10,
+                        frequency: Math.random() * 0.5 + 0.5
+                    });
+                }
+            }
+            
+            update() {
+                if (!this.active) return;
+                
+                this.timer++;
+                this.pulsePhase += 0.3;
+                
+                if (this.progress < 1) {
+                    this.progress = Math.min(1, this.progress + this.speed);
+                }
+                
+                if (this.timer >= this.duration) {
+                    this.active = false;
+                }
+                
+                this.lightningOffsets.forEach(offset => {
+                    offset.amplitude = Math.sin(this.timer * offset.frequency) * 30 + 10;
+                });
+            }
+            
+            draw(ctx) {
+                if (!this.active) return;
+                
+                const alpha = 1 - (this.timer / this.duration);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                
+                const currentEndX = this.startX + (this.endX - this.startX) * this.progress;
+                const currentEndY = this.startY + (this.endY - this.startY) * this.progress;
+                
+                for (let layer = 3; layer > 0; layer--) {
+                    const layerWidth = this.width * layer;
+                    const layerAlpha = alpha * (0.3 / layer);
+                    
+                    ctx.globalAlpha = layerAlpha;
+                    
+                    const gradient = ctx.createLinearGradient(this.startX, this.startY, currentEndX, currentEndY);
+                    gradient.addColorStop(0, 'rgba(0, 150, 255, 0.8)');
+                    gradient.addColorStop(0.5, 'rgba(0, 200, 255, 1)');
+                    gradient.addColorStop(1, 'rgba(0, 100, 255, 0.8)');
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = layerWidth;
+                    ctx.lineCap = 'round';
+                    ctx.shadowBlur = 50;
+                    ctx.shadowColor = '#00AAFF';
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(this.startX, this.startY);
+                    ctx.lineTo(currentEndX, currentEndY);
+                    ctx.stroke();
+                    
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = layerWidth / 4;
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#FFFFFF';
+                    
+                    this.lightningOffsets.forEach(offset => {
+                        const midX = this.startX + (currentEndX - this.startX) * offset.offset;
+                        const midY = this.startY + (currentEndY - this.startY) * offset.offset;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(midX, midY);
+                        ctx.lineTo(
+                            midX + Math.sin(this.timer * 0.2) * offset.amplitude,
+                            midY + Math.cos(this.timer * 0.2) * offset.amplitude
+                        );
+                        ctx.stroke();
+                    });
+                }
+                
+                ctx.globalAlpha = alpha;
+                const coreGradient = ctx.createLinearGradient(this.startX, this.startY, currentEndX, currentEndY);
+                coreGradient.addColorStop(0, '#FFFFFF');
+                coreGradient.addColorStop(0.5, '#00DDFF');
+                coreGradient.addColorStop(1, '#FFFFFF');
+                
+                ctx.strokeStyle = coreGradient;
+                ctx.lineWidth = this.width / 2;
+                ctx.shadowBlur = 100;
+                ctx.shadowColor = '#00DDFF';
+                
+                ctx.beginPath();
+                ctx.moveTo(this.startX, this.startY);
+                ctx.lineTo(currentEndX, currentEndY);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#FFFFFF';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#FFFFFF';
+                
+                for (let i = 0; i < 20; i++) {
+                    const t = (i / 20) + (this.timer * 0.02);
+                    if (t <= this.progress) {
+                        const x = this.startX + (currentEndX - this.startX) * (t % 1);
+                        const y = this.startY + (currentEndY - this.startY) * (t % 1);
+                        const size = Math.sin(this.pulsePhase + i) * 3 + 5;
+                        
+                        ctx.beginPath();
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                ctx.restore();
+            }
+            
+            checkCollision(player) {
+                if (!this.active || player.isDead || this.hasHit) return false;
+                
+                if (this.progress < 0.95) return false;
+                
+                const distToStart = Math.hypot(player.x - this.startX, player.y - this.startY);
+                const distToEnd = Math.hypot(player.x - this.endX, player.y - this.endY);
+                const beamLength = Math.hypot(this.endX - this.startX, this.endY - this.startY);
+                
+                if (distToStart + distToEnd <= beamLength + 10) {
+                    const A = this.endY - this.startY;
+                    const B = this.startX - this.endX;
+                    const C = this.endX * this.startY - this.startX * this.endY;
+                    const perpDist = Math.abs(A * player.x + B * player.y + C) / Math.sqrt(A * A + B * B);
+                    
+                    if (perpDist < this.width / 2 + player.width / 2) {
+                        this.hasHit = true;
+                        return true;
+                    }
+                }
+                
+                return false;
+            }
+        }
+
+        class BloodParticle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 15 + 8;
+                this.velocityX = (Math.random() - 0.5) * 25;
+                this.velocityY = (Math.random() - 0.5) * 25 - 8;
+                this.gravity = 0.4;
+                this.life = 1;
+                this.decay = Math.random() * 0.015 + 0.005;
+                this.color = `hsl(${Math.random() * 20}, 100%, 50%)`;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+            }
+            
+            update() {
+                this.velocityY += this.gravity;
+                this.x += this.velocityX;
+                this.y += this.velocityY;
+                this.life -= this.decay;
+                this.rotation += this.rotationSpeed;
+                
+                if (this.y > canvas.height - 140) {
+                    this.y = canvas.height - 140;
+                    this.velocityY *= -0.4;
+                    this.velocityX *= 0.7;
+                    
+                    if (Math.abs(this.velocityY) > 2) {
+                        for (let i = 0; i < 3; i++) {
+                            game.bloodParticles.push({
+                                x: this.x + (Math.random() - 0.5) * 10,
+                                y: this.y,
+                                size: this.size * 0.3,
+                                velocityX: (Math.random() - 0.5) * 10,
+                                velocityY: -Math.random() * 5,
+                                gravity: 0.3,
+                                life: 0.5,
+                                decay: 0.02,
+                                color: this.color,
+                                update: BloodParticle.prototype.update,
+                                draw: BloodParticle.prototype.draw
+                            });
+                        }
+                    }
+                }
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size, this.size * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = `hsl(0, 100%, 30%)`;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.size * 0.5, this.size * 0.35, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        class Explosion {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 20;
+                this.maxRadius = 150;
+                this.growth = 8;
+                this.active = true;
+                this.particles = [];
+                
+                for (let i = 0; i < 50; i++) {
+                    const angle = (Math.PI * 2 / 50) * i;
+                    const speed = Math.random() * 8 + 3;
+                    this.particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: Math.random() * 15 + 8,
+                        color: `hsl(${Math.random() * 60 + 20}, 100%, 50%)`
+                    });
+                }
+            }
+            
+            update() {
+                if (!this.active) return;
+                
+                this.radius += this.growth;
+                
+                this.particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vx *= 0.92;
+                    p.vy *= 0.92;
+                    p.size *= 0.88;
+                });
+                
+                if (this.radius >= this.maxRadius) {
+                    this.active = false;
+                }
+            }
+            
+            draw(ctx) {
+                if (!this.active) return;
+                
+                const alpha = 1 - (this.radius / this.maxRadius);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                gradient.addColorStop(0.2, 'rgba(255, 255, 0, 0.8)');
+                gradient.addColorStop(0.4, 'rgba(255, 150, 0, 0.6)');
+                gradient.addColorStop(0.7, 'rgba(255, 50, 0, 0.4)');
+                gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                this.particles.forEach(p => {
+                    ctx.fillStyle = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                ctx.restore();
+            }
+        }
+
+        class Player {
+            constructor(x, isPlayer1, data, customization) {
+                this.x = x; this.y = canvas.height - 150; this.width = 40; this.height = 80;
+                this.isPlayer1 = isPlayer1; this.data = data; this.customization = customization;
+                this.velocityX = 0; this.velocityY = 0; this.hasBall = false; this.isShooting = false;
+                this.shotPower = 0; this.stamina = 100; this.powerCooldown = 0; this.powerActive = false;
+                this.isJumping = false; this.isBlocking = false; this.isDunking = false;
+                this.isStealing = false; this.stealCooldown = 0;
+                this.walkCycle = 0;
+                this.isDead = false;
+                this.deathTimer = 0;
+                this.streak = 0;
+                this.isDio = data.name === "DIO";
+                this.timeStopCooldown = 0;
+                this.timeStopActive = false;
+                this.timeStopAnimation = null;
+                
+                this.isSprinting = false;
+                this.sprintStamina = 100;
+                this.maxSprintStamina = 100;
+                this.sprintSpeedMultiplier = 1.8;
+                this.sprintStaminaDrain = 1.5;
+                this.sprintStaminaRecovery = 0.5;
+            }
+
+            update(keys, ball, opponent) {
+                if (this.isDead) {
+                    this.deathTimer--;
+                    if (this.deathTimer <= 0) {
+                        this.respawn();
+                    }
+                    return;
+                }
+                
+                if (this.timeStopCooldown > 0) {
+                    this.timeStopCooldown -= 16;
+                }
+                
+                if (this.timeStopAnimation) {
+                    this.timeStopAnimation.update();
+                    if (!this.timeStopAnimation.active) {
+                        this.timeStopAnimation = null;
+                    }
+                }
+                
+                if (this.isSprinting && this.sprintStamina > 0) {
+                    this.sprintStamina -= this.sprintStaminaDrain;
+                    if (this.sprintStamina <= 0) {
+                        this.sprintStamina = 0;
+                        this.isSprinting = false;
+                    }
+                } else if (!this.isSprinting && this.sprintStamina < this.maxSprintStamina) {
+                    this.sprintStamina += this.sprintStaminaRecovery;
+                    this.sprintStamina = Math.min(this.maxSprintStamina, this.sprintStamina);
+                }
+                
+                const canMove = !game.timeStopActive || (game.timeStopActive && this.isDio && this.timeStopActive);
+                
+                if (canMove && this.stamina > 0) {
+                    const isSprintPressed = (this.isPlayer1 && keys['Shift']) || (!this.isPlayer1 && keys['ShiftRight']);
+                    
+                    if (isSprintPressed && this.sprintStamina > 0) {
+                        this.isSprinting = true;
+                    } else {
+                        this.isSprinting = false;
+                    }
+                    
+                    const speedMultiplier = this.isSprinting ? this.sprintSpeedMultiplier : 1;
+                    const currentSpeed = this.data.stats.speed * 0.4 * speedMultiplier;
+                    
+                    if ((this.isPlayer1 && keys['a']) || (!this.isPlayer1 && keys['ArrowLeft'])) { 
+                        this.velocityX = -currentSpeed; 
+                        this.stamina -= this.isSprinting ? 0.5 : 0.3; 
+                    }
+                    if ((this.isPlayer1 && keys['d']) || (!this.isPlayer1 && keys['ArrowRight'])) { 
+                        this.velocityX = currentSpeed; 
+                        this.stamina -= this.isSprinting ? 0.5 : 0.3; 
+                    }
+                }
+                
+                if (canMove && (this.isPlayer1 && keys['w'] && this.y >= canvas.height - 151) || (!this.isPlayer1 && keys['ArrowUp'] && this.y >= canvas.height - 151)) { 
+                    this.velocityY = -12; 
+                    this.isJumping = true; 
+                }
+                
+                if (this.isDio && this.isPlayer1 && keys['t'] && this.timeStopCooldown <= 0) {
+                    this.activateTimeStop();
+                }
+                
+                if (this.hasBall) {
+                    const targetHoop = this.isPlayer1 ? game.hoop2 : game.hoop1;
+                    const distToHoop = Math.hypot(this.x - targetHoop.x, this.y - targetHoop.y);
+                    const isDunkRange = distToHoop < 120;
+
+                    if ((this.isPlayer1 && keys[' ']) || (!this.isPlayer1 && keys['Enter'])) {
+                        if (isDunkRange) { this.isDunking = true; this.isShooting = true; }
+                        else { this.isShooting = true; this.shotPower = Math.min(this.shotPower + 2, 100); }
+                    } else if (this.isShooting) { this.shoot(ball, isDunkRange); }
+                }
+
+                if (this.stealCooldown <= 0) {
+                    if ((this.isPlayer1 && keys['s']) || (!this.isPlayer1 && keys['ArrowDown'])) {
+                        this.attemptSteal(opponent, ball);
+                    }
+                } else { this.stealCooldown--; }
+                
+                if (!this.hasBall && opponent.hasBall && opponent.isShooting) {
+                    const dist = Math.hypot(this.x - opponent.x, this.y - opponent.y);
+                    if (dist < 60) this.isBlocking = true;
+                } else this.isBlocking = false;
+
+                this.velocityY += 0.6; this.x += this.velocityX; this.y += this.velocityY; this.velocityX *= 0.85;
+                this.x = Math.max(this.width/2, Math.min(canvas.width - this.width/2, this.x));
+                if (this.y > canvas.height - 150) { this.y = canvas.height - 150; this.velocityY = 0; this.isJumping = false; this.isDunking = false; }
+                this.stamina = Math.min(100, this.stamina + 0.2);
+                if (this.powerCooldown > 0) this.powerCooldown -= 16;
+                
+                if (Math.abs(this.velocityX) > 0.5 && !this.isJumping) { 
+                    const walkSpeed = this.isSprinting ? 0.3 : 0.2;
+                    this.walkCycle += walkSpeed; 
+                } else { 
+                    this.walkCycle = 0; 
+                }
+            }
+            
+            drawStaminaMeter(ctx) {
+                // Draw stamina meter above head
+                const meterWidth = 40;
+                const meterHeight = 6;
+                const meterY = this.y - 60;
+                
+                // Background
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(this.x - meterWidth/2, meterY, meterWidth, meterHeight);
+                
+                // Sprint stamina (yellow/orange)
+                const sprintPercent = this.sprintStamina / this.maxSprintStamina;
+                const sprintColor = this.isSprinting ? '#FFA500' : '#FFD700';
+                ctx.fillStyle = sprintColor;
+                ctx.fillRect(this.x - meterWidth/2, meterY, meterWidth * sprintPercent, meterHeight);
+                
+                // Border
+                ctx.strokeStyle = '#FFF';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(this.x - meterWidth/2, meterY, meterWidth, meterHeight);
+                
+                // Sprint indicator
+                if (this.isSprinting) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.8;
+                    ctx.fillStyle = '#FFA500';
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('SPRINT', this.x, meterY - 3);
+                    ctx.restore();
+                }
+            }
+            
+            activateTimeStop() {
+                this.timeStopCooldown = 20000;
+                this.timeStopAnimation = new TimeStopEffect(this.x, this.y - 40);
+                this.timeStopActive = true;
+                this.timeStopAnimationTimer = 60;
+                game.timeStopActive = true;
+                game.timeStopDuration = 300;
+                
+                if (game.ball) {
+                    game.ball.velocityX = 0;
+                    game.ball.velocityY = 0;
+                }
+                
+                game.screenShake = 10;
+            }
+            
+            die() {
+                this.isDead = true;
+                this.deathTimer = 120;
+                this.hasBall = false;
+                if (this.ball) {
+                    this.ball.holder = null;
+                }
+            }
+            
+            respawn() {
+                this.isDead = false;
+                this.x = this.isPlayer1 ? 200 : canvas.width - 200;
+                this.y = canvas.height - 150;
+                this.velocityX = 0;
+                this.velocityY = 0;
+                this.stamina = 100;
+                this.sprintStamina = 100;
+            }
+
+            attemptSteal(opponent, ball) {
+                const dist = Math.hypot(this.x - opponent.x, this.y - opponent.y);
+                const stealRange = game.longRangeSteal && this.isPlayer1 ? Infinity : 60;
+                
+                if (opponent.hasBall && dist < stealRange) {
+                    const stealChance = 0.75;
+                    
+                    this.stamina -= 5;
+                    this.isStealing = true;
+                    setTimeout(() => this.isStealing = false, 300);
+
+                    if (Math.random() < stealChance) {
+                        opponent.hasBall = false;
+                        this.hasBall = true;
+                        ball.holder = this;
+                    }
+                }
+                this.stealCooldown = 60;
+            }
+
+            shoot(ball, isDunk) {
+                const power = this.shotPower / 100;
+                const targetHoop = this.isPlayer1 ? game.hoop2 : game.hoop1;
+                const dx = targetHoop.x - this.x;
+                const dy = targetHoop.y - this.y;
+
+                if (isDunk) {
+                    this.velocityY = -10;
+                    ball.velocityX = dx * 0.06;
+                    ball.velocityY = -5;
+                } else {
+                    let vx, vy;
+                    if (game.aimbotEnabled && this.isPlayer1) {
+                        vx = (dx / 40);
+                        vy = (dy / 40) - 10;
+                        const powerMultiplier = 0.4 + power * 0.4;
+                        vx *= powerMultiplier;
+                        vy *= powerMultiplier;
+                        const accuracy = this.data.stats.threePoint / 10;
+                        const errorRange = (1 - accuracy) * 4;
+                        vx += (Math.random() - 0.5) * errorRange;
+                        vy += (Math.random() - 0.5) * errorRange;
+                        ball.isAimbotShot = true;
+                    } else {
+                        vx = (dx / 40);
+                        vy = (dy / 40) - 10;
+                        const powerMultiplier = 0.4 + power * 0.4;
+                        vx *= powerMultiplier;
+                        vy *= powerMultiplier;
+                        const accuracy = this.data.stats.threePoint / 10;
+                        const errorRange = (1 - accuracy) * 4;
+                        vx += (Math.random() - 0.5) * errorRange;
+                        vy += (Math.random() - 0.5) * errorRange;
+                        const blockSuccess = this.isPlayer1 ? game.p2.isBlocking : game.p1.isBlocking;
+                        if (blockSuccess) { vx *= 0.5; vy *= 0.5; }
+                        ball.isAimbotShot = false;
+                    }
+                    ball.velocityX = vx;
+                    ball.velocityY = vy;
+                }
+                
+                ball.holder = null; ball.isShot = true; ball.shooter = this;
+                setTimeout(() => ball.isShot = false, 500);
+                this.hasBall = false; this.isShooting = false; this.isDunking = false; this.shotPower = 0;
+            }
+
+            draw(ctx) {
+                if (this.isDead) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.5;
+                    ctx.translate(this.x, this.y);
+                    ctx.scale(1, 0.5);
+                    
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.beginPath();
+                    ctx.arc(0, -35, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillRect(-15, -20, 30, 30);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(-15, 10);
+                    ctx.lineTo(-10, 20);
+                    ctx.lineTo(-5, 15);
+                    ctx.lineTo(0, 20);
+                    ctx.lineTo(5, 15);
+                    ctx.lineTo(10, 20);
+                    ctx.lineTo(15, 10);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.restore();
+                    return;
+                }
+                
+                if (this.timeStopAnimation) {
+                    this.timeStopAnimation.draw(ctx);
+                }
+                
+                this.drawStaminaMeter(ctx);
+                
+                ctx.save(); ctx.translate(this.x, this.y);
+                
+                if (this.isDio) {
+                    this.drawDio(ctx);
+                } else {
+                    const app = this.data.appearance;
+                    const cust = this.customization;
+
+                    let armAngle = 0, legBend = 0, bodyY = 0, bodyStretch = 1;
+                    if (this.isDunking) { armAngle = -120; bodyStretch = 1.3; bodyY = -20; }
+                    else if (this.isStealing) { armAngle = -150; bodyY = 5; }
+                    else if (this.isShooting) { bodyY = this.shotPower * 0.15; legBend = 20; armAngle = -45; }
+                    else if (this.isBlocking) { armAngle = -90; }
+                    else if (this.isJumping) { legBend = -15; armAngle = 30; }
+
+                    const walkAngle = Math.sin(this.walkCycle) * 20;
+
+                    ctx.fillStyle = '#000'; 
+                    ctx.save(); ctx.rotate(walkAngle * Math.PI/180); ctx.fillRect(-15, 35, 12, 8); ctx.restore();
+                    ctx.save(); ctx.rotate(-walkAngle * Math.PI/180); ctx.fillRect(3, 35, 12, 8); ctx.restore();
+                    
+                    ctx.fillStyle = cust.shortsColor; 
+                    ctx.save(); ctx.rotate(walkAngle * Math.PI/180); ctx.fillRect(-12, 10, 10, 25); ctx.restore();
+                    ctx.save(); ctx.rotate(-walkAngle * Math.PI/180); ctx.fillRect(2, 10, 10, 25); ctx.restore();
+
+                    ctx.fillStyle = cust.shortsColor; ctx.beginPath(); ctx.moveTo(-15, 10); ctx.lineTo(15, 10); ctx.lineTo(12, 25); ctx.lineTo(-12, 25); ctx.closePath(); ctx.fill();
+                    
+                    ctx.save(); ctx.scale(1, bodyStretch); ctx.translate(0, -bodyY);
+                    ctx.fillStyle = cust.jerseyColor; ctx.fillRect(-15, -20, 30, 30);
+                    ctx.fillStyle = '#FFF'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.fillText(cust.number, 0, -5);
+                    ctx.restore();
+
+                    ctx.save(); ctx.rotate(armAngle * Math.PI / 180);
+                    ctx.fillStyle = app.skin; ctx.fillRect(-20, -15, 8, 25);
+                    ctx.restore();
+                    ctx.save(); ctx.rotate(-armAngle * Math.PI / 180);
+                    ctx.fillStyle = app.skin; ctx.fillRect(12, -15, 8, 25);
+                    ctx.restore();
+                    
+                    ctx.fillStyle = app.skin; ctx.beginPath(); ctx.arc(0, -35, 15, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = app.hairColor;
+                    if (app.hair === 'short') ctx.fillRect(-15, -48, 30, 15);
+                    if (app.hair === 'bald') {}
+                    ctx.fillStyle = '#FFF'; ctx.fillRect(-5, -38, 4, 4); ctx.fillRect(1, -38, 4, 4);
+                    ctx.fillStyle = '#000'; ctx.fillRect(-4, -37, 2, 2); ctx.fillRect(2, -37, 2, 2);
+                }
+                
+                ctx.restore();
+            }
+            
+            drawDio(ctx) {
+                const cust = this.customization;
+                
+                let armAngle = 0, bodyY = 0, jumpHeight = 0;
+                
+                if (this.timeStopActive) {
+                    jumpHeight = Math.min(60, this.timeStopAnimationTimer * 2);
+                    armAngle = 90;
+                    bodyY = -jumpHeight;
+                    
+                    this.timeStopAnimationTimer--;
+                    if (this.timeStopAnimationTimer <= 0) {
+                        this.timeStopActive = false;
+                    }
+                } else {
+                    if (this.isDunking) { armAngle = -120; bodyY = -20; }
+                    else if (this.isStealing) { armAngle = -150; bodyY = 5; }
+                    else if (this.isShooting) { bodyY = this.shotPower * 0.15; armAngle = -45; }
+                    else if (this.isBlocking) { armAngle = -90; }
+                    else if (this.isJumping) { armAngle = 30; }
+                }
+                
+                const walkAngle = Math.sin(this.walkCycle) * 20;
+                
+                ctx.fillStyle = '#000'; 
+                ctx.save(); ctx.rotate(walkAngle * Math.PI/180); ctx.fillRect(-15, 35, 12, 8); ctx.restore();
+                ctx.save(); ctx.rotate(-walkAngle * Math.PI/180); ctx.fillRect(3, 35, 12, 8); ctx.restore();
+                
+                ctx.fillStyle = cust.shortsColor; 
+                ctx.save(); ctx.rotate(walkAngle * Math.PI/180); ctx.fillRect(-12, 10, 10, 25); ctx.restore();
+                ctx.save(); ctx.rotate(-walkAngle * Math.PI/180); ctx.fillRect(2, 10, 10, 25); ctx.restore();
+
+                ctx.fillStyle = cust.shortsColor; ctx.beginPath(); ctx.moveTo(-15, 10); ctx.lineTo(15, 10); ctx.lineTo(12, 25); ctx.lineTo(-12, 25); ctx.closePath(); ctx.fill();
+                
+                ctx.save(); ctx.translate(0, bodyY);
+                ctx.fillStyle = cust.jerseyColor; ctx.fillRect(-15, -20, 30, 30);
+                ctx.fillStyle = '#FFF'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.fillText(cust.number, 0, -5);
+                ctx.restore();
+                
+                ctx.save(); ctx.rotate(armAngle * Math.PI / 180);
+                ctx.fillStyle = '#FDBCB4'; ctx.fillRect(-20, -15, 8, 25);
+                ctx.restore();
+                ctx.save(); ctx.rotate(-armAngle * Math.PI / 180);
+                ctx.fillStyle = '#FDBCB4'; ctx.fillRect(12, -15, 8, 25);
+                ctx.restore();
+                
+                ctx.fillStyle = '#FDBCB4'; ctx.beginPath(); ctx.arc(0, -35, 15, 0, Math.PI * 2); ctx.fill();
+                
+                ctx.fillStyle = '#FFD700';
+                
+                ctx.beginPath(); ctx.moveTo(-15, -48); ctx.lineTo(-12, -55); ctx.lineTo(-8, -58); ctx.lineTo(-4, -60); ctx.lineTo(0, -61); ctx.lineTo(4, -60); ctx.lineTo(8, -58); ctx.lineTo(12, -55); ctx.lineTo(15, -48); ctx.lineTo(15, -45); ctx.lineTo(-15, -45); ctx.closePath(); ctx.fill();
+                
+                ctx.fillRect(-15, -50, 3, 10);
+                ctx.fillRect(-11, -55, 3, 12);
+                ctx.fillRect(-7, -58, 3, 13);
+                ctx.fillRect(-3, -60, 3, 14);
+                ctx.fillRect(1, -60, 3, 14);
+                ctx.fillRect(5, -58, 3, 13);
+                ctx.fillRect(9, -55, 3, 12);
+                ctx.fillRect(13, -50, 3, 10);
+                
+                ctx.fillRect(-18, -45, 5, 8);
+                ctx.fillRect(-18, -40, 4, 5);
+                ctx.fillRect(13, -45, 5, 8);
+                ctx.fillRect(13, -40, 4, 5);
+                
+                ctx.fillRect(-12, -40, 24, 5);
+                ctx.fillRect(-10, -38, 20, 3);
+                ctx.fillRect(-8, -36, 16, 2);
+                
+                ctx.fillStyle = '#FFF'; ctx.fillRect(-5, -38, 4, 4); ctx.fillRect(1, -38, 4, 4);
+                ctx.fillStyle = '#000'; ctx.fillRect(-4, -37, 2, 2); ctx.fillRect(2, -37, 2, 2);
+                
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(-10, -30, 20, 2);
+                ctx.fillRect(-8, -28, 16, 1);
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(2, -44); ctx.lineTo(6, -44); ctx.lineTo(3, -41); ctx.lineTo(4, -37); ctx.lineTo(0, -39); ctx.lineTo(-4, -37); ctx.lineTo(-3, -41); ctx.lineTo(-6, -44); ctx.lineTo(-2, -44); ctx.closePath(); ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-15, -25, 30, 1);
+                ctx.fillRect(-12, -24, 24, 1);
+                ctx.fillRect(-10, -23, 20, 1);
+                
+                ctx.beginPath(); ctx.arc(0, -20, 5, 0, Math.PI); ctx.stroke();
+            }
+        }
+
+        class Ball {
+            constructor() { 
+                this.reset(); 
+                this.radius = 12; 
+                this.isShot = false; 
+                this.isAimbotShot = false; 
+                this.shooter = null;
+                this.frozenVelocityX = 0;
+                this.frozenVelocityY = 0;
+            }
+            reset() { 
+                this.x = canvas.width / 2; 
+                this.y = 100; 
+                this.velocityX = 0; 
+                this.velocityY = 0; 
+                this.holder = null; 
+                this.isShot = false; 
+                this.isAimbotShot = false; 
+                this.shooter = null;
+                this.frozenVelocityX = 0;
+                this.frozenVelocityY = 0;
+            }
+            update() {
+                if (this.holder) { 
+                    this.x = this.holder.x; 
+                    this.y = this.holder.y - 20; 
+                } else {
+                    if (game.timeStopActive) {
+                        if (this.holder && this.holder.isDio && this.holder.timeStopActive) {
+                            this.x += this.velocityX;
+                            this.y += this.velocityY;
+                        }
+                    } else {
+                        if (this.isAimbotShot && game.aimbotEnabled) {
+                            const targetHoop = game.p1.isPlayer1 ? game.hoop2 : game.hoop1;
+                            const distToHoop = Math.hypot(this.x - targetHoop.x, this.y - targetHoop.y);
+                            if (distToHoop < 100) {
+                                const dx = targetHoop.x - this.x;
+                                const dy = targetHoop.y - this.y;
+                                this.velocityX = (dx / distToHoop) * 8;
+                                this.velocityY = (dy / distToHoop) * 8;
+                            }
+                        }
+
+                        this.velocityY += 0.3; 
+                        this.x += this.velocityX; 
+                        this.y += this.velocityY;
+                    }
+                    
+                    if (this.y + this.radius > canvas.height - 140) { 
+                        this.y = canvas.height - 140 - this.radius; 
+                        this.velocityY *= -0.5; 
+                    }
+                    if (this.x - this.radius < 0 || this.x + this.radius > canvas.width) { 
+                        this.velocityX *= -0.6; 
+                    }
+                }
+            }
+            draw(ctx) {
+                ctx.fillStyle = '#FF6600'; 
+                ctx.beginPath(); 
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); 
+                ctx.fill();
+                ctx.strokeStyle = '#000'; 
+                ctx.lineWidth = 1; 
+                ctx.beginPath(); 
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); 
+                ctx.stroke();
+                ctx.beginPath(); 
+                ctx.moveTo(this.x - this.radius, this.y); 
+                ctx.lineTo(this.x + this.radius, this.y);
+                ctx.moveTo(this.x, this.y - this.radius); 
+                ctx.lineTo(this.x, this.y + this.radius); 
+                ctx.stroke();
+            }
+        }
+
+        class Hoop {
+            constructor(x, isPlayer1) { this.x = x; this.y = 250; this.isPlayer1 = isPlayer1; this.shielded = false; this.shieldTimer = 0; }
+            update() { if (this.shielded && this.shieldTimer > 0) { this.shieldTimer -= 16; if (this.shieldTimer <= 0) this.shielded = false; } }
+            draw(ctx) {
+                const backboardOffset = this.isPlayer1 ? -40 : 40;
+                ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(this.x + backboardOffset, this.y - 60, 10, 100);
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(this.x + backboardOffset, this.y - 60, 10, 100);
+                ctx.strokeStyle = '#FF0000'; ctx.lineWidth = 2; ctx.strokeRect(this.x - 15, this.y - 30, 20, 20);
+                ctx.strokeStyle = '#FF4500'; ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.ellipse(this.x, this.y, 30, 10, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = '#FFF'; ctx.lineWidth = 1;
+                for(let i = 0; i < 8; i++) {
+                    const angle = (Math.PI * 2 / 8) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + Math.cos(angle) * 30, this.y + Math.sin(angle) * 10);
+                    ctx.lineTo(this.x + Math.cos(angle) * 25, this.y + 40);
+                    ctx.stroke();
+                }
+                if (this.shielded) {
+                    ctx.fillStyle = 'rgba(0, 255, 255, 0.3)'; ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(this.x, this.y, 50, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                }
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.gameState = 'menu'; this.player1Choice = null; this.player2Choice = null;
+                this.p1 = null; this.p2 = null; this.ball = new Ball();
+                this.hoop1 = new Hoop(50, true); this.hoop2 = new Hoop(canvas.width - 50, false);
+                this.score = { p1: 0, p2: 0 }; this.keys = {}; this.screenShake = 0;
+                this.aimbotEnabled = false; this.longRangeSteal = false; this.energyBlastEnabled = false;
+                this.energyBeams = []; this.bloodParticles = []; this.explosions = [];
+                this.arenaExplosion = null; this.victoryAnimation = null;
+                this.winScore = 20;
+                this.timeStopActive = false;
+                this.timeStopDuration = 0;
+                this.setupEventListeners(); this.populateSelectScreen(); this.populateCustomizationScreen(); this.gameLoop();
+            }
+            setupEventListeners() {
+                window.addEventListener('keydown', e => {
+                    this.keys[e.key] = true;
+                    
+                    if (e.key === '1' && this.gameState === 'menu') {
+                        this.selectSecretCharacter();
+                    }
+                    
+                    if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P') && this.gameState === 'game') this.pause();
+                    
+                    if (e.key === 'r' || e.key === 'R') {
+                        if (this.gameState === 'game' && this.energyBlastEnabled && this.p1 && !this.p1.isDead) {
+                            this.fireEnergyBeam();
+                        }
+                    }
+                });
+                window.addEventListener('keyup', e => this.keys[e.key] = false);
+                document.getElementById('devButton').addEventListener('click', () => this.openDevPanel());
+            }
+            
+            selectSecretCharacter() {
+                this.player1Choice = -1;
+                this.showCustomization();
+            }
+            
+            openDevPanel() {
+                const password = prompt("Enter password:");
+                if (password === "1014") {
+                    this.gameState = 'dev';
+                    this.showScreen('devScreen');
+                }
+            }
+            toggleAimbot() {
+                this.aimbotEnabled = !this.aimbotEnabled;
+                const btn = document.getElementById('aimbotToggle');
+                btn.textContent = `[${this.aimbotEnabled ? 'ON' : 'OFF'}] Aimbot (P1)`;
+                btn.classList.toggle('active', this.aimbotEnabled);
+            }
+            toggleSteal() {
+                this.longRangeSteal = !this.longRangeSteal;
+                const btn = document.getElementById('stealToggle');
+                btn.textContent = `[${this.longRangeSteal ? 'ON' : 'OFF'}] Global Steal (P1)`;
+                btn.classList.toggle('active', this.longRangeSteal);
+            }
+            toggleEnergyBlast() {
+                this.energyBlastEnabled = !this.energyBlastEnabled;
+                const btn = document.getElementById('energyBlastToggle');
+                btn.textContent = `[${this.energyBlastEnabled ? 'ON' : 'OFF'}] Energy Beam (P1)`;
+                btn.classList.toggle('active', this.energyBlastEnabled);
+            }
+            fireEnergyBeam() {
+                if (!this.p1 || this.p1.isDead) return;
+                
+                const beam = new EnergyBeam(
+                    this.p1.x, 
+                    this.p1.y - 20, 
+                    this.p2.x, 
+                    this.p2.y
+                );
+                
+                this.energyBeams.push(beam);
+                
+                this.screenShake = 25;
+            }
+            createBloodEffect(x, y) {
+                for (let i = 0; i < 50; i++) {
+                    this.bloodParticles.push(new BloodParticle(x, y));
+                }
+                
+                for (let i = 0; i < 30; i++) {
+                    const mist = new BloodParticle(x, y);
+                    mist.size = Math.random() * 30 + 20;
+                    mist.velocityX = (Math.random() - 0.5) * 40;
+                    mist.velocityY = (Math.random() - 0.5) * 40 - 15;
+                    mist.decay = 0.03;
+                    this.bloodParticles.push(mist);
+                }
+            }
+            createExplosion(x, y) {
+                this.explosions.push(new Explosion(x, y));
+            }
+            populateSelectScreen() {
+                const p1Select = document.getElementById('player1Select');
+                const p2Select = document.getElementById('player2Select');
+                PLAYER_ROSTER.forEach((p, i) => {
+                    p1Select.appendChild(this.createPlayerCard(p, i, 1));
+                    p2Select.appendChild(this.createPlayerCard(p, i, 2));
+                });
+            }
+            populateCustomizationScreen() {
+                const p1Colors = document.getElementById('p1ColorOptions'); const p2Colors = document.getElementById('p2ColorOptions');
+                JERSEY_COLORS.forEach((color, i) => {
+                    p1Colors.appendChild(this.createColorOption(color, i, 1));
+                    p2Colors.appendChild(this.createColorOption(color, i, 2));
+                });
+            }
+            createPlayerCard(player, index, playerNum) {
+                const div = document.createElement('div'); div.className = 'player-card';
+                div.innerHTML = `
+                    <div class="avatar" style="background-color: ${player.appearance.skin};"></div>
+                    <div class="info">
+                        <h3>${player.name}</h3>
+                        <p>"${player.nickname}"</p>
+                        <div class="stats">SPD: ${player.stats.speed} | 3PT: ${player.stats.threePoint} | DUNK: ${player.stats.dunk} | DEF: ${player.stats.defense}</div>
+                    </div>
+                `;
+                div.onclick = () => this.selectPlayer(playerNum, index, div); return div;
+            }
+            createColorOption(color, index, playerNum) {
+                const div = document.createElement('div'); div.className = 'color-option'; div.style.backgroundColor = color;
+                div.onclick = () => this.selectColor(playerNum, index, div); return div;
+            }
+            selectPlayer(playerNum, index, element) {
+                document.querySelectorAll(`#player${playerNum}Select .player-card`).forEach(c => c.classList.remove('selected'));
+                element.classList.add('selected'); if (playerNum === 1) this.player1Choice = index; else this.player2Choice = index;
+            }
+            selectColor(playerNum, index, element) {
+                document.querySelectorAll(`#p${playerNum}ColorOptions .color-option`).forEach(c => c.classList.remove('selected'));
+                element.classList.add('selected'); if (playerNum === 1) this.p1ColorChoice = index; else this.p2ColorChoice = index;
+            }
+            showScreen(screenId) { 
+                document.querySelectorAll('.menu-screen, .select-screen, .customize-screen, .game-ui, .pause-screen, .dev-screen, .victory-screen').forEach(s => s.classList.add('hidden')); 
+                document.getElementById(screenId).classList.remove('hidden'); 
+            }
+            showCustomization() { 
+                if (this.player1Choice === null && this.player2Choice === null) {
+                    this.showScreen('selectScreen');
+                    return;
+                }
+                
+                if (this.player1Choice === -1) {
+                    if (this.player2Choice === null) {
+                        this.player2Choice = 0;
+                    }
+                    this.showScreen('customizeScreen');
+                    return;
+                }
+                
+                if (this.player1Choice === null || this.player2Choice === null) return; 
+                this.showScreen('customizeScreen'); 
+            }
+            pause() { this.gameState = 'paused'; this.showScreen('pauseScreen'); }
+            resume() { this.gameState = 'game'; this.showScreen('gameUI'); }
+            startMatch() {
+                const p1Data = this.player1Choice === -1 ? DIO_CHARACTER : PLAYER_ROSTER[this.player1Choice];
+                const p2Data = PLAYER_ROSTER[this.player2Choice];
+                
+                const p1Cust = { jerseyColor: JERSEY_COLORS[this.p1ColorChoice || 0], shortsColor: JERSEY_COLORS[this.p1ColorChoice || 0], number: document.getElementById('p1Number').value };
+                const p2Cust = { jerseyColor: JERSEY_COLORS[this.p2ColorChoice || 1], shortsColor: JERSEY_COLORS[this.p2ColorChoice || 1], number: document.getElementById('p2Number').value };
+                
+                this.p1 = new Player(200, true, p1Data, p1Cust);
+                this.p2 = new Player(canvas.width - 200, false, p2Data, p2Cust);
+                this.ball.holder = this.p1; this.p1.hasBall = true;
+                document.getElementById('p1Name').textContent = this.p1.data.name; document.getElementById('p2Name').textContent = this.p2.data.name;
+                this.showScreen('gameUI'); this.gameState = 'game';
+                
+                this.score = { p1: 0, p2: 0 };
+                this.p1.streak = 0;
+                this.p2.streak = 0;
+                background.isDestroyed = false;
+                this.arenaExplosion = null;
+                this.victoryAnimation = null;
+            }
+            checkWinCondition() {
+                if (this.score.p1 >= this.winScore || this.score.p2 >= this.winScore) {
+                    const winner = this.score.p1 >= this.winScore ? this.p1 : this.p2;
+                    const loser = this.score.p1 >= this.winScore ? this.p2 : this.p1;
+                    const winnerScore = this.score.p1 >= this.winScore ? this.score.p1 : this.score.p2;
+                    const loserScore = this.score.p1 >= this.winScore ? this.score.p2 : this.score.p1;
+                    
+                    this.victoryAnimation = new VictoryAnimation(winner, loser, winnerScore, loserScore);
+                    this.gameState = 'victory';
+                    
+                    document.getElementById('winnerName').textContent = winner.data.name;
+                    document.getElementById('victoryStats').textContent = `Final Score: ${winnerScore} - ${loserScore}`;
+                    this.showScreen('victoryScreen');
+                }
+            }
+            handleGameLogic() {
+                if (this.gameState !== 'game') return;
+                
+                if (this.timeStopActive) {
+                    this.timeStopDuration--;
+                    if (this.timeStopDuration <= 0) {
+                        this.timeStopActive = false;
+                    }
+                }
+                
+                this.p1.update(this.keys, this.ball, this.p2); 
+                this.p2.update(this.keys, this.ball, this.p1); 
+                
+                if (this.timeStopActive) {
+                    if (this.ball.holder && this.ball.holder.isDio && this.ball.holder.timeStopActive) {
+                        this.ball.update();
+                    }
+                } else {
+                    this.ball.update();
+                }
+                
+                this.hoop1.update(); 
+                this.hoop2.update();
+                
+                this.energyBeams = this.energyBeams.filter(beam => {
+                    beam.update();
+                    
+                    if (beam.checkCollision(this.p2)) {
+                        this.createBloodEffect(this.p2.x, this.p2.y);
+                        this.createExplosion(this.p2.x, this.p2.y);
+                        this.p2.die();
+                        this.screenShake = 30;
+                        return false;
+                    }
+                    
+                    return beam.active;
+                });
+                
+                this.bloodParticles = this.bloodParticles.filter(particle => {
+                    particle.update();
+                    return particle.life > 0;
+                });
+                
+                this.explosions = this.explosions.filter(explosion => {
+                    explosion.update();
+                    return explosion.active;
+                });
+                
+                if (this.arenaExplosion) {
+                    this.arenaExplosion.update();
+                    if (!this.arenaExplosion.active) {
+                        this.arenaExplosion = null;
+                    }
+                }
+                
+                if (this.victoryAnimation) {
+                    this.victoryAnimation.update();
+                }
+                
+                if (!this.ball.holder && !this.ball.isShot) {
+                    const dist1 = Math.hypot(this.p1.x - this.ball.x, this.p1.y - this.ball.y);
+                    const dist2 = Math.hypot(this.p2.x - this.ball.x, this.p2.y - this.ball.y);
+                    if (dist1 < 30 && !this.p1.isDead) { this.ball.holder = this.p1; this.p1.hasBall = true; }
+                    if (dist2 < 30 && !this.p2.isDead) { this.ball.holder = this.p2; this.p2.hasBall = true; }
+                }
+                if (!this.ball.holder) {
+                    if (this.ball.x > this.hoop2.x - 30 && this.ball.x < this.hoop2.x + 30 && this.ball.y > this.hoop2.y - 10 && this.ball.y < this.hoop2.y + 10) { 
+                        if (!this.hoop2.shielded) { 
+                            this.score.p1++; 
+                            this.screenShake = 10; 
+                            document.getElementById('score1').textContent = this.score.p1;
+                            
+                            this.p1.streak++;
+                            this.p2.streak = 0;
+                            this.updateStreakDisplay();
+                            
+                            if (this.p1.streak >= 5) {
+                                this.arenaExplosion = new ArenaExplosion();
+                            }
+                            
+                            this.checkWinCondition();
+                        } 
+                        this.resetRound(); 
+                    }
+                    if (this.ball.x > this.hoop1.x - 30 && this.ball.x < this.hoop1.x + 30 && this.ball.y > this.hoop1.y - 10 && this.ball.y < this.hoop1.y + 10) { 
+                        if (!this.hoop1.shielded) { 
+                            this.score.p2++; 
+                            this.screenShake = 10; 
+                            document.getElementById('score2').textContent = this.score.p2;
+                            
+                            this.p2.streak++;
+                            this.p1.streak = 0;
+                            this.updateStreakDisplay();
+                            
+                            if (this.p2.streak >= 5) {
+                                this.arenaExplosion = new ArenaExplosion();
+                            }
+                            
+                            this.checkWinCondition();
+                        } 
+                        this.resetRound(); 
+                    }
+                }
+                document.getElementById('p1Stamina').style.width = `${this.p1.stamina}%`; 
+                document.getElementById('p2Stamina').style.width = `${this.p2.stamina}%`;
+                document.getElementById('p1Power').style.width = `${100 - (this.p1.powerCooldown / this.p1.data.power.cooldown * 100)}%`;
+                document.getElementById('p2Power').style.width = `${100 - (this.p2.powerCooldown / this.p2.data.power.cooldown * 100)}%`;
+                
+                if (this.p1.isDio) {
+                    const timeStopPercent = 100 - (this.p1.timeStopCooldown / 20000 * 100);
+                    document.getElementById('p1Power').style.width = `${timeStopPercent}%`;
+                }
+            }
+            updateStreakDisplay() {
+                const streak1El = document.getElementById('streak1');
+                const streak2El = document.getElementById('streak2');
+                
+                streak1El.innerHTML = `Streak: ${this.p1.streak}`;
+                streak2El.innerHTML = `Streak: ${this.p2.streak}`;
+                
+                if (this.p1.streak >= 3) {
+                    streak1El.innerHTML += '<span class="streak-fire"></span>';
+                }
+                if (this.p2.streak >= 3) {
+                    streak2El.innerHTML += '<span class="streak-fire"></span>';
+                }
+            }
+            resetRound() {
+                this.ball.reset(); 
+                this.p1.x = 200; 
+                this.p1.y = canvas.height - 150; 
+                this.p2.x = canvas.width - 200; 
+                this.p2.y = canvas.height - 150;
+                this.p1.hasBall = false; 
+                this.p2.hasBall = false; 
+                this.ball.holder = this.score.p1 > this.score.p2 ? this.p2 : this.p1; 
+                this.ball.holder.hasBall = true;
+            }
+            draw() {
+                background.draw(this);
+                ctx.fillStyle = '#D2691E'; 
+                if (background.isDestroyed) {
+                    ctx.fillStyle = '#222';
+                } else {
+                    ctx.fillStyle = '#D2691E';
+                }
+                ctx.fillRect(0, canvas.height - 140, canvas.width, 140);
+                ctx.strokeStyle = '#FFF'; 
+                ctx.lineWidth = 3; 
+                ctx.beginPath(); 
+                ctx.moveTo(0, canvas.height - 140); 
+                ctx.lineTo(canvas.width, canvas.height - 140); 
+                ctx.stroke();
+                
+                if (this.screenShake > 0) { 
+                    ctx.save(); 
+                    ctx.translate((Math.random() - 0.5) * this.screenShake, (Math.random() - 0.5) * this.screenShake); 
+                    this.screenShake *= 0.9; 
+                }
+                
+                this.hoop1.draw(ctx); 
+                this.hoop2.draw(ctx); 
+                this.p1.draw(ctx); 
+                this.p2.draw(ctx); 
+                this.ball.draw(ctx);
+                
+                this.energyBeams.forEach(beam => beam.draw(ctx));
+                
+                this.bloodParticles.forEach(particle => particle.draw(ctx));
+                
+                this.explosions.forEach(explosion => explosion.draw(ctx));
+                
+                if (this.arenaExplosion) {
+                    this.arenaExplosion.draw(ctx);
+                }
+                
+                if (this.victoryAnimation) {
+                    this.victoryAnimation.draw(ctx);
+                }
+                
+                if (this.timeStopActive) {
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(128, 0, 255, 0.1)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    ctx.fillStyle = '#FFD700';
+                    ctx.font = 'bold 40px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('TIME HAS STOPPED!', canvas.width / 2, 100);
+                    
+                    const timeRemaining = Math.ceil(this.timeStopDuration / 60);
+                    ctx.font = 'bold 20px VT323';
+                    ctx.fillText(`${timeRemaining}s`, canvas.width / 2, 130);
+                    
+                    ctx.restore();
+                }
+                
+                if (this.screenShake > 0) ctx.restore();
+            }
+            gameLoop() {
+                if (this.gameState === 'game') { 
+                    this.handleGameLogic(); 
+                    this.draw(); 
+                }
+                else if (this.gameState === 'paused' || this.gameState === 'dev') { 
+                    this.draw(); 
+                }
+                else if (this.gameState === 'victory') {
+                    this.draw();
+                    if (this.victoryAnimation) {
+                        this.victoryAnimation.update();
+                    }
+                }
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+        const game = new Game();
+    </script>
+</body>
+</html>
